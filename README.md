@@ -2,25 +2,62 @@
 
 > Trade the other side of questionable decisions.
 
-Fade Him is a Nado-first, non-custodial interface for taking the inverse of one manually curated public perpetual position. Pacifica remains a complete secondary execution route. The product is intentionally an anti-terminal: no candles, no order book UI, automated trader discovery, agent, custody, or copy-trading backend.
+Fade Him is a non-custodial perpetuals interface built around one deliberately narrow idea: present a curated public position, invert its direction, and turn that thesis into a reviewable order.
 
-The application implements attributed opening and reduce-only closing orders. Execution is fail-closed until registered builder credentials are present and the production activation flag is enabled; there is no simulated fill path.
+Nado is the primary execution venue. Pacifica provides a complete secondary route for Solana users. The product avoids the shape of a conventional trading terminal—there are no charts, order books, automated trader discovery, custody, or copy-trading agents.
 
-## Stack and architecture
+## How it works
 
-Next.js 16 App Router, strict TypeScript, Tailwind 4, wagmi/viem, Solana wallet-adapter, TanStack Query, Zod, decimal.js, official Nado TypeScript SDK 0.25.0, Vitest, and Playwright. See [architecture](docs/architecture.md) and [protocol research](docs/integration-notes.md).
+1. A manually curated public position becomes a signal dossier.
+2. Fade Him derives the inverse side and builds an order for the selected venue.
+3. The user reviews venue, side, size, price protection, fees, and builder attribution.
+4. The connected wallet signs the venue-native payload.
+5. The app submits the order and records a sanitized receipt.
+6. `/proof` verifies attribution only when official fill evidence is available.
 
-Nado owns the default selected venue and primary visual hierarchy. Each venue implements the shared adapter contract but keeps protocol signing, account state, order data, fills, and proof isolated under `lib/nado` or `lib/pacifica`.
+Opening and closing trades are separate attributed orders. Closing is always reduce-only.
 
-## Prerequisites
+## Venue model
 
-- Node.js 20.9 or later
-- pnpm 10
-- An EVM wallet for Nado and/or a Solana wallet with `signMessage` for Pacifica
-- Registered public builder credentials before enabling execution
-- Funded venue accounts on the selected mainnet networks
+Both venues implement the same product-level adapter contract while keeping protocol concerns isolated:
 
-## Install and run
+- **Nado — primary:** EVM wallet, Ink mainnet, Nado subaccounts, EIP-712 signing, builder appendix attribution.
+- **Pacifica — secondary:** Solana wallet, signed API requests, builder-code approval and attribution.
+
+Venue-specific market discovery, signing, submission, fill lookup, and error normalization live under `lib/nado` and `lib/pacifica`. Shared review, receipt, risk, and proof behavior lives under `lib/trading`.
+
+## Safety boundaries
+
+- Wallets sign directly; Fade Him never holds user keys or funds.
+- Execution fails closed when builder attribution is incomplete.
+- There is no simulated-fill fallback in the production interface.
+- Order review is mandatory before signing.
+- Notional and slippage limits are enforced before submission.
+- A local receipt is not treated as proof without official venue fill evidence.
+- Secrets, signatures, authorization material, and session data are excluded from stored receipts.
+
+Perpetuals are leveraged, high-risk products. Users can lose their posted collateral and may be liquidated.
+
+## Architecture
+
+```text
+app/                  Next.js routes and Pacifica proxy
+components/           dossier, venue selection, review, receipts, proof
+config/               curated signal configuration
+lib/trading/          shared venue contract, risk and receipt model
+lib/nado/             Nado market, signing, execution and fill adapter
+lib/pacifica/         Pacifica auth, API, approval and execution adapter
+docs/                 architecture and protocol integration notes
+tests/                unit and browser coverage
+```
+
+The application uses Next.js 16, React 19, strict TypeScript, wagmi/viem, Solana wallet-adapter, TanStack Query, Zod, decimal.js, the official Nado TypeScript SDK, Vitest, and Playwright.
+
+More detail is available in [architecture](docs/architecture.md) and [protocol integration notes](docs/integration-notes.md).
+
+## Local development
+
+Requirements: Node.js 20.9+, pnpm 10, and an EVM and/or Solana wallet.
 
 ```powershell
 pnpm install
@@ -28,9 +65,9 @@ Copy-Item .env.example .env.local
 pnpm dev
 ```
 
-Open `http://localhost:3000`. Mainnet presentation is the default; execution remains locked until explicitly activated.
+The public interface can be reviewed without builder credentials. Real order signing remains locked until the selected venue has valid attribution configuration and live trading is explicitly enabled.
 
-Quality commands:
+Quality checks:
 
 ```powershell
 pnpm lint
@@ -40,83 +77,4 @@ pnpm build
 pnpm test:e2e
 ```
 
-## Environment
-
-| Variable | Meaning |
-|---|---|
-| `NEXT_PUBLIC_APP_MODE` | Public environment badge; defaults to `mainnet` |
-| `NEXT_PUBLIC_ENABLE_LIVE_TRADING` | Production kill switch: `false` blocks signing; `true` enables configured live adapters |
-| `NEXT_PUBLIC_NADO_NETWORK` | `inkMainnet` for production |
-| `NEXT_PUBLIC_NADO_BUILDER_ID` | Registered public builder ID, 1-65535 |
-| `NEXT_PUBLIC_NADO_BUILDER_FEE_RATE_UNITS` | 0-1023, each unit is 0.1 bps |
-| `NEXT_PUBLIC_NADO_SUBACCOUNT_NAME` | Up to 12 bytes; defaults to `default` |
-| `NEXT_PUBLIC_PACIFICA_NETWORK` | `mainnet` for production |
-| `NEXT_PUBLIC_PACIFICA_BUILDER_CODE` | Registered alphanumeric code, maximum 16 characters |
-| `NEXT_PUBLIC_PACIFICA_MAX_FEE_RATE` | Decimal-string user approval maximum |
-| `NEXT_PUBLIC_DEFAULT_SYMBOL` | Default curated symbol |
-| `NEXT_PUBLIC_DEFAULT_NOTIONAL_USD` | Initial ticket amount |
-| `NEXT_PUBLIC_MAX_NOTIONAL_USD` | Hard notional maximum |
-| `NEXT_PUBLIC_MAX_SLIPPAGE_BPS` | Review and order slippage bound |
-
-Missing attribution configuration is shown exactly in the developer status panel. Submission fails closed; there is no zero-ID/code fallback.
-
-## Curated signal
-
-Edit `config/fade-signals.ts`. Until a verified public source is connected, the dossier publishes no wallet address, performance statistics, or freshness claim. Before activating a signal, provide a public wallet, pseudonymous alias, verified public statistics, source URL, current timestamp, and `isLiveData: true`.
-
-## Nado mainnet setup
-
-1. Obtain a registered builder ID and allowed fee range from Nado.
-2. Set both Nado builder variables with `NEXT_PUBLIC_NADO_NETWORK=inkMainnet`.
-3. Connect an EVM wallet and switch it to Ink Mainnet.
-4. Create and fund the configured Nado subaccount externally. Current docs require at least $5 USDT0 to activate it; add sufficient collateral for the intended order.
-5. Verify symbol metadata, product ID, minimum size, IOC appendix, builder ID, fee units, side, and slippage.
-6. Set `NEXT_PUBLIC_ENABLE_LIVE_TRADING=true` only after the funded-wallet preflight.
-7. Submit the minimum intended order, wait for indexer fill confirmation, then verify the digest, appendix, builder fee, and `/proof`.
-8. Close through the reduce-only action and verify the separate attributed closing fill.
-
-## Pacifica mainnet setup
-
-1. Confirm the registered builder code, owner wallet, and fee.
-2. Set the Pacifica builder variables with `NEXT_PUBLIC_PACIFICA_NETWORK=mainnet`.
-3. Connect a supported Solana wallet that implements `signMessage`; the public key is the Pacifica account.
-4. Fund the Pacifica account.
-5. Select Pacifica, approve the builder code, and verify the approval maximum is at least the registered fee.
-6. Set `NEXT_PUBLIC_ENABLE_LIVE_TRADING=true` only after the funded-wallet preflight.
-7. Submit the minimum intended order and match the resulting client order UUID in builder-filtered trade history.
-8. Close with reduce-only and verify the separate attributed closing fill.
-
-## Execution activation
-
-With the live flag false, the interface remains available for review and public market metadata, but wallet signing and submission are blocked. Missing builder attribution is reported before wallet access. With the flag true, only real venue adapters are reachable.
-
-## Proof and receipts
-
-`/proof` has independent Nado and Pacifica cards and a dual checklist. Local storage keeps at most 25 sanitized live receipts. Signatures, authorization material, tokens, sessions, and key-like values are redacted. A local receipt alone cannot complete proof; it must contain official protocol evidence from a fill.
-
-## Mainnet warning
-
-Perpetuals are leveraged products. Mainnet orders can lose the full posted collateral and may be liquidated. Verify builder registration, fee bounds, network, symbol, minimum, side, slippage, collateral, and close procedure before enabling execution. Never activate mainnet submission with an empty builder configuration.
-
-## Vercel deployment
-
-1. Import the repository into Vercel.
-2. Use Node 20+ and pnpm.
-3. Add the public environment variables for Production and keep live trading false until preflight is complete.
-4. Deploy. The Pacifica proxy runs as a dynamic route and forwards only allowlisted already-signed requests.
-5. Add platform-level rate limiting before public trading traffic; the built-in limiter is per function instance.
-
-## Troubleshooting
-
-- **Nado incorrect network:** use the header switch action for Ink Mainnet.
-- **Nado subaccount missing:** create and fund `default`, or change the configured 12-byte name.
-- **Nado 2118 / InvalidBuilder:** confirm registration and fee-unit bounds.
-- **Nado accepted but no fill:** do not resubmit blindly; inspect the digest and IOC/history result.
-- **Pacifica wallet cannot sign:** select a wallet exposing Solana `signMessage`.
-- **Pacifica 403:** approve the builder code again with a maximum at least as high as its current fee.
-- **Pacifica 404:** confirm the builder code is registered on mainnet.
-- **Pacifica symbol rejected:** preserve exact casing returned by `/info`.
-- **Fill timeout:** inspect venue history using the digest or client order ID; timeout alone is not proof of rejection or fill.
-- **Vercel/CORS:** use the included `/api/pacifica` route; signing remains client-side.
-
-Use [the live checklist](docs/live-trading-checklist.md) during every attributed trade.
+Environment defaults and documented public configuration fields are provided in [.env.example](.env.example). Production trade validation is tracked separately in [the live trading checklist](docs/live-trading-checklist.md).
