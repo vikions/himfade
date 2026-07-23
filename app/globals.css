@@ -45,7 +45,6 @@ a { color: inherit; text-decoration: none; }
 .pacifica-wallet-button { height: 2.2rem !important; min-height: 2.2rem !important; border: 1px solid var(--line) !important; border-radius: .35rem !important; background: rgba(255,255,255,.025) !important; padding: 0 .7rem !important; color: #aaa79e !important; font-family: var(--font-geist-sans), sans-serif !important; font-size: .7rem !important; font-weight: 500 !important; line-height: 1 !important; }
 .pacifica-wallet-button img { width: 16px !important; height: 16px !important; }
 header .wallet-adapter-button.wallet-adapter-button-trigger { height: 2.2rem !important; min-height: 2.2rem !important; border: 1px solid var(--line) !important; border-radius: .35rem !important; background: rgba(255,255,255,.025) !important; padding: 0 .7rem !important; color: #aaa79e !important; font-family: var(--font-geist-sans), sans-serif !important; font-size: .7rem !important; font-weight: 500 !important; line-height: 1 !important; }
-.demo-banner { border: 1px solid rgba(216,149,142,.26); background: rgba(126,62,54,.1); padding: .7rem 1rem; text-align: center; color: #d8a59e; font: 650 .68rem/1 var(--font-geist-mono), monospace; letter-spacing: .13em; }
 .dossier, .trade-panel { min-width: 0; border: 1px solid var(--line); background: rgba(25,25,22,.82); box-shadow: inset 0 1px rgba(255,255,255,.025), 0 32px 80px -50px rgba(0,0,0,.85); }
 .dossier { position: relative; overflow: hidden; min-height: 640px; padding: clamp(1.5rem, 4vw, 3.5rem); }
 .dossier::before { content: 'FADE'; position: absolute; right: -1.4rem; bottom: -2.6rem; color: rgba(255,255,255,.018); font-size: 11rem; font-weight: 800; letter-spacing: -.1em; }
@@ -126,7 +125,6 @@ header .wallet-adapter-button.wallet-adapter-button-trigger { height: 2.2rem !im
 .receipt-heading > span { display: grid; width: 2rem; aspect-ratio: 1; place-items: center; border-radius: 50%; background: #a8bfaa; color: #161714; }
 .receipt-heading p { margin: 0; font-size: .78rem; font-weight: 650; }
 .receipt-heading small { color: #74736c; font-size: .6rem; }
-.demo-stamp { margin-top: .8rem; border: 1px dashed rgba(216,149,142,.28); padding: .5rem; text-align: center; color: #c98c85; font: .6rem var(--font-geist-mono), monospace; letter-spacing: .1em; }
 .trade-receipt dl { margin: .8rem 0 0; }
 .trade-receipt dl > div { display: flex; justify-content: space-between; gap: 1rem; border-top: 1px solid rgba(255,255,255,.06); padding: .5rem 0; font-size: .64rem; }
 .trade-receipt dt { color: #706e67; }
@@ -169,5 +167,4 @@ header .wallet-adapter-button.wallet-adapter-button-trigger { height: 2.2rem !im
 .dual-checklist strong { color: #b9b6ae; font-weight: 520; }
 .dual-checklist p { width: 100%; margin: .3rem 0 0; color: #b4cab7; font: 650 .72rem var(--font-geist-mono), monospace; letter-spacing: .12em; }
 .dual-checklist button { display: inline-flex; align-items: center; gap: .35rem; margin-left: auto; }
-.demo-proof-note { margin-top: 1rem; color: #a77f79; font-size: .68rem; }
 @media (max-width: 767px) { .proof-grid { grid-template-columns: 1fr; } .dual-checklist { align-items: stretch; flex-direction: column; } .dual-checklist button { margin-left: 0; } }

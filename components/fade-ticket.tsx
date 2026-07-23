@@ -40,7 +40,7 @@ export function FadeTicket({
         <small>Maximum configured MVP size applies.</small>
       </label>
       <dl className="review-metrics">
-        <div><dt>Current reference price</dt><dd>${price}</dd></div>
+        <div><dt>Current reference price</dt><dd>{price === 'Loading' ? price : `$${price}`}</dd></div>
         <div><dt>Estimated base amount</dt><dd>{estimatedAmount} {symbol}</dd></div>
         <div><dt>Venue minimum</dt><dd>{minimumOrder}</dd></div>
         <div><dt>Builder attribution</dt><dd>{attribution}</dd></div>

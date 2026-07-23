@@ -16,7 +16,7 @@ Fade Him is a stateless Next.js App Router application. The page is Nado-first, 
 
 - Wallet private keys never enter the app. wagmi requests EIP-712 signatures and Solana wallet-adapter requests message signatures.
 - Public builder IDs/codes are client configuration. Missing values disable only live execution for that venue.
-- Live adapters never return mock data. Demo simulation is selected only when the public live flag is false and every demo receipt has `isDemo: true`.
+- Venue adapters never return mock data. When the public activation flag is false, execution stops before wallet signing and no receipt is created.
 - A submitted response is kept distinct from a fill. Proof promotion requires protocol-returned evidence saved in `officialEvidence`.
 - Diagnostics recursively redact signatures, tokens, sessions, authorization values, and private-key-like fields.
 

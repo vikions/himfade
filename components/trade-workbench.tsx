@@ -28,8 +28,12 @@ import { OrderReviewDialog } from './order-review-dialog';
 import { TradeReceipt } from './trade-receipt';
 import { VenueSelector } from './venue-selector';
 
-const demoMarket = { price: '3241.82', sizeIncrement: '0.0001', minimumUsd: '10' };
-const lifecycle = ['Preparing', 'Awaiting signature', 'Submitted', 'Accepted', 'Filled'] as const;
+type MarketPreview = {
+  venue: Venue;
+  price: string;
+  sizeIncrement: string;
+  minimumUsd: string;
+};
 
 export function TradeWorkbench({ signal, env }: { signal: FadeSignal; env: PublicEnv }) {
   const [venue, setVenue] = useState<Venue>('nado');
@@ -42,7 +46,8 @@ export function TradeWorkbench({ signal, env }: { signal: FadeSignal; env: Publi
   const [pending, setPending] = useState(false);
   const [closing, setClosing] = useState(false);
   const [approving, setApproving] = useState(false);
-  const [marketPreview, setMarketPreview] = useState(demoMarket);
+  const [marketPreview, setMarketPreview] = useState<MarketPreview | null>(null);
+  const [marketFailure, setMarketFailure] = useState<{ venue: Venue; message: string } | null>(null);
   const adapterRef = useRef<VenueAdapter | null>(null);
   const { address, chainId } = useAccount();
   const requiredChain = env.NEXT_PUBLIC_NADO_NETWORK === 'inkMainnet' ? ink : inkSepolia;
@@ -51,9 +56,10 @@ export function TradeWorkbench({ signal, env }: { signal: FadeSignal; env: Publi
   const nadoConfig = getVenueConfigStatus(env, 'nado');
   const pacificaConfig = getVenueConfigStatus(env, 'pacifica');
   const fadeSide = reverseSide(signal.positionSide);
+  const activeMarket = marketPreview?.venue === venue ? marketPreview : null;
+  const activeMarketFailure = marketFailure?.venue === venue ? marketFailure.message : null;
 
   useEffect(() => {
-    if (!env.NEXT_PUBLIC_ENABLE_LIVE_TRADING) return;
     let active = true;
     void (async () => {
       const market = venue === 'nado'
@@ -61,26 +67,35 @@ export function TradeWorkbench({ signal, env }: { signal: FadeSignal; env: Publi
         : await getPacificaMarket(new PacificaApi(env.NEXT_PUBLIC_PACIFICA_NETWORK), signal.symbol);
       if (active) {
         setMarketPreview({
+          venue,
           price: market.price,
           sizeIncrement: market.sizeIncrement,
           minimumUsd: market.minimumNotionalUsd,
         });
       }
     })().catch(() => {
-      // Order preparation surfaces actionable venue errors. Keep the last safe preview here.
+      if (active) {
+        setMarketFailure({
+          venue,
+          message: `${venue === 'nado' ? 'Nado' : 'Pacifica'} market data is temporarily unavailable.`,
+        });
+      }
     });
     return () => { active = false; };
-  }, [env.NEXT_PUBLIC_ENABLE_LIVE_TRADING, env.NEXT_PUBLIC_NADO_NETWORK, env.NEXT_PUBLIC_PACIFICA_NETWORK, signal.symbol, venue]);
+  }, [env.NEXT_PUBLIC_NADO_NETWORK, env.NEXT_PUBLIC_PACIFICA_NETWORK, signal.symbol, venue]);
 
   const estimatedAmount = useMemo(() => {
-    try { return notionalToBaseAmount(notional, marketPreview.price, marketPreview.sizeIncrement); }
+    if (!activeMarket) return '—';
+    try { return notionalToBaseAmount(notional, activeMarket.price, activeMarket.sizeIncrement); }
     catch { return '0'; }
-  }, [marketPreview.price, marketPreview.sizeIncrement, notional]);
-  const validationErrors = validateNotional({
-    notionalUsd: notional,
-    minimumUsd: marketPreview.minimumUsd,
-    maximumUsd: String(env.NEXT_PUBLIC_MAX_NOTIONAL_USD),
-  });
+  }, [activeMarket, notional]);
+  const validationErrors = activeMarket
+    ? validateNotional({
+        notionalUsd: notional,
+        minimumUsd: activeMarket.minimumUsd,
+        maximumUsd: String(env.NEXT_PUBLIC_MAX_NOTIONAL_USD),
+      })
+    : [];
 
   async function createAdapter(): Promise<VenueAdapter> {
     if (venue === 'nado') {
@@ -99,39 +114,36 @@ export function TradeWorkbench({ signal, env }: { signal: FadeSignal; env: Publi
   async function handleReview() {
     setError(null);
     setTechnicalError(undefined);
+    const selectedConfig = venue === 'nado' ? nadoConfig : pacificaConfig;
+    const venueName = venue === 'nado' ? 'Nado' : 'Pacifica';
+    if (!selectedConfig.ready) {
+      setError(`${venueName} builder configuration is pending. Execution remains locked until attributed orders are enabled.`);
+      setStatus('Builder onboarding');
+      return;
+    }
+    if (!env.NEXT_PUBLIC_ENABLE_LIVE_TRADING) {
+      setError('Mainnet execution activation is pending. Builder settings will be verified before wallet signing is enabled.');
+      setStatus('Activation pending');
+      return;
+    }
     if (validationErrors.length) return;
+    if (!activeMarket) {
+      setError(activeMarketFailure ?? `${venueName} market data is still loading. Try again in a moment.`);
+      setStatus('Market unavailable');
+      return;
+    }
     setPending(true);
     setStatus('Preparing');
     try {
-      if (!env.NEXT_PUBLIC_ENABLE_LIVE_TRADING) {
-        setPrepared({
-          venue,
-          symbol: signal.symbol,
-          side: fadeSide,
-          requestedNotionalUsd: notional,
-          estimatedBaseAmount: estimatedAmount,
-          reduceOnly: false,
-          attribution: {
-            configured: venue === 'nado' ? nadoConfig.ready : pacificaConfig.ready,
-            label: venue === 'nado'
-              ? nadoConfig.ready ? `Builder #${env.NEXT_PUBLIC_NADO_BUILDER_ID}` : 'Missing builder ID — demo only'
-              : pacificaConfig.ready ? `Builder ${env.NEXT_PUBLIC_PACIFICA_BUILDER_CODE}` : 'Missing builder code — demo only',
-            details: {},
-          },
-          payload: { demo: true },
-          debug: { demo: true },
-        });
-      } else {
-        const adapter = await createAdapter();
-        const order = await adapter.prepareMarketOrder({
-          symbol: signal.symbol,
-          side: fadeSide,
-          notionalUsd: notional,
-          slippageBps: env.NEXT_PUBLIC_MAX_SLIPPAGE_BPS,
-        });
-        adapterRef.current = adapter;
-        setPrepared(order);
-      }
+      const adapter = await createAdapter();
+      const order = await adapter.prepareMarketOrder({
+        symbol: signal.symbol,
+        side: fadeSide,
+        notionalUsd: notional,
+        slippageBps: env.NEXT_PUBLIC_MAX_SLIPPAGE_BPS,
+      });
+      adapterRef.current = adapter;
+      setPrepared(order);
       setStatus('Review required');
     } catch (cause) {
       const tradingError = toTradingError(cause);
@@ -146,46 +158,28 @@ export function TradeWorkbench({ signal, env }: { signal: FadeSignal; env: Publi
     setPending(true);
     setError(null);
     try {
-      if (!env.NEXT_PUBLIC_ENABLE_LIVE_TRADING) {
-        for (const step of lifecycle) {
-          setStatus(step);
-          await new Promise((resolve) => setTimeout(resolve, 180));
-        }
-        const demoReceipt: TradeReceiptType = {
-          id: crypto.randomUUID(), venue, network: venue === 'nado' ? env.NEXT_PUBLIC_NADO_NETWORK : env.NEXT_PUBLIC_PACIFICA_NETWORK,
-          symbol: signal.symbol, side: fadeSide, intent: 'open', requestedNotionalUsd: notional,
-          submittedAt: new Date().toISOString(), attributionStatus: 'configured', isDemo: true,
-          builderId: venue === 'nado' ? env.NEXT_PUBLIC_NADO_BUILDER_ID : undefined,
-          builderFeeRate: venue === 'nado' ? env.NEXT_PUBLIC_NADO_BUILDER_FEE_RATE_UNITS : undefined,
-          builderCode: venue === 'pacifica' ? env.NEXT_PUBLIC_PACIFICA_BUILDER_CODE : undefined,
-          sanitizedRawResponse: { demo: true, lifecycle },
-        };
-        saveReceipt(demoReceipt);
-        setReceipt(demoReceipt);
-      } else {
-        const adapter = adapterRef.current;
-        if (!adapter) throw new Error('Live venue adapter was not prepared.');
-        setStatus('Awaiting signature');
-        const submitted = await adapter.submitMarketOrder(prepared);
-        setStatus(submitted.accepted ? 'Accepted' : 'Rejected');
-        const fill = await adapter.waitForFill(submitted);
-        setStatus(fill.status === 'partial' ? 'Partially filled' : 'Filled');
-        const liveReceipt: TradeReceiptType = {
-          id: crypto.randomUUID(), venue, network: venue === 'nado' ? env.NEXT_PUBLIC_NADO_NETWORK : env.NEXT_PUBLIC_PACIFICA_NETWORK,
-          symbol: signal.symbol, side: fadeSide, intent: 'open', requestedNotionalUsd: notional,
-          filledNotionalUsd: fill.notionalUsd, filledBaseAmount: fill.baseAmount, averagePrice: fill.averagePrice,
-          submittedAt: submitted.submittedAt, filledAt: fill.filledAt, orderId: fill.orderId,
-          clientOrderId: submitted.clientOrderId, digest: submitted.digest,
-          builderId: venue === 'nado' ? env.NEXT_PUBLIC_NADO_BUILDER_ID : undefined,
-          builderFeeRate: venue === 'nado' ? env.NEXT_PUBLIC_NADO_BUILDER_FEE_RATE_UNITS : undefined,
-          builderCode: venue === 'pacifica' ? env.NEXT_PUBLIC_PACIFICA_BUILDER_CODE : undefined,
-          attributionStatus: fill.builderEvidence ? 'verified' : 'fill-confirmed',
-          officialEvidence: fill.builderEvidence,
-          sanitizedRawResponse: { submitted: submitted.raw, fill: fill.raw },
-        };
-        saveReceipt(liveReceipt);
-        setReceipt(liveReceipt);
-      }
+      const adapter = adapterRef.current;
+      if (!adapter) throw new Error('Live venue adapter was not prepared.');
+      setStatus('Awaiting signature');
+      const submitted = await adapter.submitMarketOrder(prepared);
+      setStatus(submitted.accepted ? 'Accepted' : 'Rejected');
+      const fill = await adapter.waitForFill(submitted);
+      setStatus(fill.status === 'partial' ? 'Partially filled' : 'Filled');
+      const liveReceipt: TradeReceiptType = {
+        id: crypto.randomUUID(), venue, network: venue === 'nado' ? env.NEXT_PUBLIC_NADO_NETWORK : env.NEXT_PUBLIC_PACIFICA_NETWORK,
+        symbol: signal.symbol, side: fadeSide, intent: 'open', requestedNotionalUsd: notional,
+        filledNotionalUsd: fill.notionalUsd, filledBaseAmount: fill.baseAmount, averagePrice: fill.averagePrice,
+        submittedAt: submitted.submittedAt, filledAt: fill.filledAt, orderId: fill.orderId,
+        clientOrderId: submitted.clientOrderId, digest: submitted.digest,
+        builderId: venue === 'nado' ? env.NEXT_PUBLIC_NADO_BUILDER_ID : undefined,
+        builderFeeRate: venue === 'nado' ? env.NEXT_PUBLIC_NADO_BUILDER_FEE_RATE_UNITS : undefined,
+        builderCode: venue === 'pacifica' ? env.NEXT_PUBLIC_PACIFICA_BUILDER_CODE : undefined,
+        attributionStatus: fill.builderEvidence ? 'verified' : 'fill-confirmed',
+        officialEvidence: fill.builderEvidence,
+        sanitizedRawResponse: { submitted: submitted.raw, fill: fill.raw },
+      };
+      saveReceipt(liveReceipt);
+      setReceipt(liveReceipt);
       setPrepared(null);
     } catch (cause) {
       const tradingError = toTradingError(cause);
@@ -239,15 +233,15 @@ export function TradeWorkbench({ signal, env }: { signal: FadeSignal; env: Publi
       {(!nadoConfig.ready || !pacificaConfig.ready) && (
         <details className="config-status">
           <summary>Developer configuration status</summary>
-          {!nadoConfig.ready && <p>Nado live disabled: missing {nadoConfig.missing.join(', ')}</p>}
-          {!pacificaConfig.ready && <p>Pacifica live disabled: missing {pacificaConfig.missing.join(', ')}</p>}
-          <p>Demo mode remains available. No unattributed fallback order will be sent.</p>
+          {!nadoConfig.ready && <p>Nado builder onboarding pending: missing {nadoConfig.missing.join(', ')}</p>}
+          {!pacificaConfig.ready && <p>Pacifica builder configuration pending: missing {pacificaConfig.missing.join(', ')}</p>}
+          <p>Execution remains locked until attribution is configured. No unattributed order will be sent.</p>
         </details>
       )}
       {venue === 'pacifica' && env.NEXT_PUBLIC_ENABLE_LIVE_TRADING && pacificaConfig.ready && (
         <div className="pacifica-approval"><div><strong>Builder approval</strong><span>One signed authorization, revocable through Pacifica.</span></div><button onClick={handleApproval} disabled={approving || !solana.connected}>{approving ? 'Approving…' : 'APPROVE FADE HIM BUILDER CODE'}</button></div>
       )}
-      <FadeTicket targetSide={signal.positionSide} fadeSide={fadeSide} symbol={signal.symbol} venue={venue} notional={notional} onNotionalChange={setNotional} price={marketPreview.price} estimatedAmount={estimatedAmount} minimumOrder={`$${marketPreview.minimumUsd}`} attribution={venue === 'nado' ? nadoConfig.ready ? `#${env.NEXT_PUBLIC_NADO_BUILDER_ID} · ${env.NEXT_PUBLIC_NADO_BUILDER_FEE_RATE_UNITS} units` : 'Missing config' : pacificaConfig.ready ? env.NEXT_PUBLIC_PACIFICA_BUILDER_CODE! : 'Missing config'} errors={validationErrors} />
+      <FadeTicket targetSide={signal.positionSide} fadeSide={fadeSide} symbol={signal.symbol} venue={venue} notional={notional} onNotionalChange={setNotional} price={activeMarket?.price ?? 'Loading'} estimatedAmount={estimatedAmount} minimumOrder={activeMarket ? `$${activeMarket.minimumUsd}` : activeMarketFailure ?? 'Loading'} attribution={venue === 'nado' ? nadoConfig.ready ? `#${env.NEXT_PUBLIC_NADO_BUILDER_ID} · ${env.NEXT_PUBLIC_NADO_BUILDER_FEE_RATE_UNITS} units` : 'Builder onboarding pending' : pacificaConfig.ready ? env.NEXT_PUBLIC_PACIFICA_BUILDER_CODE! : 'Builder configuration pending'} errors={validationErrors} />
       {error && <div className="execution-error" role="alert"><strong>Execution blocked</strong><p>{error}</p>{technicalError !== undefined && <details><summary>Developer details</summary><pre>{JSON.stringify(technicalError, null, 2)}</pre></details>}</div>}
       <button className="fade-button" disabled={pending || validationErrors.length > 0} onClick={handleReview}><span>{pending ? 'PREPARING' : `FADE ON ${venue.toUpperCase()}`}</span><ArrowRight size={19} weight="bold" /></button>
       <p className="button-footnote">No custody. No background agent. Explicit confirmation required.</p>

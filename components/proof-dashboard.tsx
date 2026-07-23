@@ -70,7 +70,6 @@ export function ProofDashboard({ env }: { env: PublicEnv }) {
         {nadoVerified && pacificaVerified && <p>DUAL BUILDER ATTRIBUTION VERIFIED</p>}
         <button className="secondary-action" onClick={() => navigator.clipboard.writeText(JSON.stringify(diagnostics, null, 2))}><Copy size={15} /> Copy diagnostics</button>
       </section>
-      {receipts.some((item) => item.isDemo) && <p className="demo-proof-note">Demo receipts exist locally. They are intentionally excluded from every completion state above.</p>}
     </div>
   );
 }

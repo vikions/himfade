@@ -18,19 +18,14 @@ export type FadeSignal = {
 };
 
 export const featuredSignal: FadeSignal = {
-  id: 'demo-eternal-bull',
+  id: 'nado-mainnet-signal-feed',
   alias: 'THE ETERNAL BULL',
   sourceVenue: 'nado',
   walletAddress: '0x000000000000000000000000000000000000dEaD',
   symbol: 'ETH',
   positionSide: 'long',
   positionNotionalUsd: 18420,
-  pnl1dUsd: -730,
-  pnl7dUsd: -4210,
-  pnl30dUsd: -12840,
-  winRatePercent: 28,
-  liquidationCount: 4,
-  updatedAt: '2026-07-13T00:00:00.000Z',
-  dataSourceLabel: 'Demo dossier — replace with verified public protocol data',
+  updatedAt: '2026-07-23T00:00:00.000Z',
+  dataSourceLabel: 'Nado mainnet signal adapter',
   isLiveData: false,
 };

@@ -11,14 +11,14 @@ const optionalDecimalString = z.preprocess(
 );
 
 export const publicEnvSchema = z.object({
-  NEXT_PUBLIC_APP_MODE: z.enum(['testnet', 'mainnet']).default('testnet'),
+  NEXT_PUBLIC_APP_MODE: z.enum(['testnet', 'mainnet']).default('mainnet'),
   NEXT_PUBLIC_ENABLE_LIVE_TRADING: z
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
   NEXT_PUBLIC_NADO_NETWORK: z
     .enum(['inkTestnet', 'inkMainnet'])
-    .default('inkTestnet'),
+    .default('inkMainnet'),
   NEXT_PUBLIC_NADO_BUILDER_ID: optionalInteger.pipe(
     z.number().int().min(1).max(65535).optional(),
   ),
@@ -28,7 +28,7 @@ export const publicEnvSchema = z.object({
   NEXT_PUBLIC_NADO_SUBACCOUNT_NAME: z.string().min(1).max(12).default('default'),
   NEXT_PUBLIC_PACIFICA_NETWORK: z
     .enum(['testnet', 'mainnet'])
-    .default('testnet'),
+    .default('mainnet'),
   NEXT_PUBLIC_PACIFICA_BUILDER_CODE: z.preprocess(
     (value) => (value === '' || value === undefined ? undefined : value),
     z.string().regex(/^[A-Za-z0-9]{1,16}$/).optional(),

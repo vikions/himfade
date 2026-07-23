@@ -3,6 +3,14 @@ import { getVenueConfigStatus, readPublicEnv } from '@/config/env';
 import { loadReceipts, sanitizeProtocolData, saveReceipt } from '@/lib/receipts/storage';
 
 describe('fail-closed configuration', () => {
+  it('defaults the public application to mainnet with execution locked', () => {
+    const env = readPublicEnv({});
+    expect(env.NEXT_PUBLIC_APP_MODE).toBe('mainnet');
+    expect(env.NEXT_PUBLIC_NADO_NETWORK).toBe('inkMainnet');
+    expect(env.NEXT_PUBLIC_PACIFICA_NETWORK).toBe('mainnet');
+    expect(env.NEXT_PUBLIC_ENABLE_LIVE_TRADING).toBe(false);
+  });
+
   it('disables each live venue when its attribution config is missing', () => {
     const env = readPublicEnv({ NEXT_PUBLIC_ENABLE_LIVE_TRADING: 'true' });
     expect(getVenueConfigStatus(env, 'nado')).toEqual({

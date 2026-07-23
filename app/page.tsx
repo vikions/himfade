@@ -22,10 +22,7 @@ export default function HomePage() {
             One curated position. One inverse order. Nado is the primary route; Pacifica remains available when you need the Solana path.
           </p>
         </div>
-        {!env.NEXT_PUBLIC_ENABLE_LIVE_TRADING && (
-          <div className="demo-banner" role="status">DEMO MODE — NO ORDER WILL BE SENT</div>
-        )}
-        <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]">
+        <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]">
           <LoserCard signal={featuredSignal} />
           <TradeWorkbench signal={featuredSignal} env={env} />
         </div>

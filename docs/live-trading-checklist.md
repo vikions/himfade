@@ -1,6 +1,6 @@
 # Live trading checklist
 
-Complete each venue independently. Start on testnet, use the minimum currently reported by the venue, and close the position immediately after proof is collected if that is the test plan.
+Complete each venue independently. On mainnet, use the minimum currently reported by the venue, verify every attribution field before signing, and close the position immediately after proof is collected if that is the plan.
 
 ## Nado
 
