@@ -1,0 +1,59 @@
+{
+  "name": "fade-him",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@nadohq/client": "0.25.0",
+    "@nadohq/engine-client": "0.25.0",
+    "@nadohq/indexer-client": "0.25.0",
+    "@nadohq/shared": "0.25.0",
+    "@phosphor-icons/react": "2.1.10",
+    "@solana/wallet-adapter-react": "0.15.39",
+    "@solana/wallet-adapter-react-ui": "0.9.39",
+    "@solana/web3.js": "1.98.4",
+    "@tanstack/react-query": "5.101.2",
+    "bignumber.js": "11.1.1",
+    "bs58": "6.0.0",
+    "decimal.js": "10.6.0",
+    "geist": "1.7.2",
+    "next": "16.2.10",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "viem": "2.52.0",
+    "wagmi": "3.7.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "@tailwindcss/postcss": "4.3.2",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.2",
+    "eslint-config-next": "16.2.10",
+    "jsdom": "27.4.0",
+    "prettier": "3.9.5",
+    "prettier-plugin-tailwindcss": "0.7.2",
+    "tailwindcss": "4.3.2",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}
