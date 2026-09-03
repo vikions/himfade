@@ -12,6 +12,7 @@ export type NormalizedMarket = {
   sizeIncrement: string;
   minimumBaseAmount: string;
   minimumNotionalUsd: string;
+  minimumFeeNotionalUsd?: string;
   raw: unknown;
 };
 

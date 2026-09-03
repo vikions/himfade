@@ -2,39 +2,41 @@
 
 > Trade the other side of questionable decisions.
 
-Fade Him is a non-custodial perpetuals interface built around one deliberately narrow idea: present a curated public position, invert its direction, and turn that thesis into a reviewable order.
+Fade Him is a non-custodial perpetuals product built around one deliberately narrow idea: present a curated public position, invert its direction, and turn that thesis into a reviewable trade.
 
-Nado is the primary execution venue. Pacifica provides a complete secondary route for Solana users. The product avoids the shape of a conventional trading terminal—there are no charts, order books, automated trader discovery, custody, or copy-trading agents.
+Nado on Ink is the primary execution venue. Pacifica is available as a secondary route for Solana users. Fade Him avoids the shape of a conventional trading terminal: there are no charts, order books, custody, automated trader discovery, or unattended copy trading.
 
 ## How it works
 
 1. A manually curated public position becomes a signal dossier.
-2. Fade Him derives the inverse side and builds an order for the selected venue.
-3. The user reviews venue, side, size, price protection, fees, and builder attribution.
-4. The connected wallet signs the venue-native payload.
-5. The app submits the order and records a sanitized receipt.
-6. `/proof` verifies attribution only when official fill evidence is available.
+2. Fade Him derives the inverse side and prepares an order for the selected venue.
+3. The user connects a wallet, funds their trading balance in-app, and chooses any size supported by their account.
+4. The user reviews the trade and signs the venue-native payload.
+5. Fade Him submits the order and records the resulting fill.
+6. `/proof` presents the execution history and venue order references.
 
-Opening and closing trades are separate attributed orders. Closing is always reduce-only.
+Opening and closing trades are separate orders. Closing is always reduce-only.
 
-## Venue model
+## Product model
 
-Both venues implement the same product-level adapter contract while keeping protocol concerns isolated:
+Fade Him is Ink-native: Ink is the wallet and settlement environment for the primary Nado route. Nado supplies live perpetual markets, account state, wallet-signed deposits and execution, and fill history.
 
-- **Nado — primary:** EVM wallet, Ink mainnet, Nado subaccounts, EIP-712 signing, builder appendix attribution.
-- **Pacifica — secondary:** Solana wallet, signed API requests, builder-code approval and attribution.
+The differentiator is the decision flow. Fade Him starts with a curated, inspectable public-position thesis and prepares only its inverse. The user still controls the venue, amount, review, wallet signature, and close.
 
-Venue-specific market discovery, signing, submission, fill lookup, and error normalization live under `lib/nado` and `lib/pacifica`. Shared review, receipt, risk, and proof behavior lives under `lib/trading`.
+Both venues implement the same product-level adapter contract while keeping protocol-specific behavior isolated:
+
+- **Nado — primary:** EVM wallet, Ink mainnet, in-app USDT0 funding, account-aware position sizing, and wallet-signed execution.
+- **Pacifica — secondary:** Solana wallet and signed venue-native execution.
 
 ## Safety boundaries
 
 - Wallets sign directly; Fade Him never holds user keys or funds.
-- Execution fails closed when builder attribution is incomplete.
+- Every deposit and trade requires an explicit wallet confirmation.
+- Execution fails closed when a required venue integration is unavailable.
 - There is no simulated-fill fallback in the production interface.
 - Order review is mandatory before signing.
-- Notional and slippage limits are enforced before submission.
-- A local receipt is not treated as proof without official venue fill evidence.
-- Secrets, signatures, authorization material, and session data are excluded from stored receipts.
+- Available size and slippage are checked before submission.
+- Secrets, signatures, authorization material, and session data are excluded from copied receipts.
 
 Perpetuals are leveraged, high-risk products. Users can lose their posted collateral and may be liquidated.
 
@@ -42,18 +44,18 @@ Perpetuals are leveraged, high-risk products. Users can lose their posted collat
 
 ```text
 app/                  Next.js routes and Pacifica proxy
-components/           dossier, venue selection, review, receipts, proof
-config/               curated signal configuration
-lib/trading/          shared venue contract, risk and receipt model
-lib/nado/             Nado market, signing, execution and fill adapter
-lib/pacifica/         Pacifica auth, API, approval and execution adapter
-docs/                 architecture and protocol integration notes
+components/           dossier, account funding, trade review, receipts
+config/               curated signal and runtime configuration
+lib/trading/          shared venue contract, sizing, risk, receipts
+lib/nado/             Nado funding, market, execution, and fill adapter
+lib/pacifica/         Pacifica auth, API, and execution adapter
+docs/                 architecture and integration notes
 tests/                unit and browser coverage
 ```
 
 The application uses Next.js 16, React 19, strict TypeScript, wagmi/viem, Solana wallet-adapter, TanStack Query, Zod, decimal.js, the official Nado TypeScript SDK, Vitest, and Playwright.
 
-More detail is available in [architecture](docs/architecture.md) and [protocol integration notes](docs/integration-notes.md).
+More detail is available in [architecture](docs/architecture.md) and [integration notes](docs/integration-notes.md).
 
 ## Local development
 
@@ -65,8 +67,6 @@ Copy-Item .env.example .env.local
 pnpm dev
 ```
 
-The public interface can be reviewed without builder credentials. Real order signing remains locked until the selected venue has valid attribution configuration and live trading is explicitly enabled.
-
 Quality checks:
 
 ```powershell
@@ -77,4 +77,4 @@ pnpm build
 pnpm test:e2e
 ```
 
-Environment defaults and documented public configuration fields are provided in [.env.example](.env.example). Production trade validation is tracked separately in [the live trading checklist](docs/live-trading-checklist.md).
+Environment defaults are provided in [.env.example](.env.example). Production verification is tracked separately in [the live trading checklist](docs/live-trading-checklist.md).

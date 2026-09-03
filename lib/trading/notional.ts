@@ -21,25 +21,32 @@ export function notionalToBaseAmount(
   if (!notional.isPositive() || !marketPrice.isPositive()) {
     throw new Error('Notional and price must be greater than zero.');
   }
-  return roundDownToIncrement(notional.div(marketPrice).toString(), sizeIncrement);
+  return roundDownToIncrement(
+    notional.div(marketPrice).toString(),
+    sizeIncrement,
+  );
 }
 
 export function calculateNotional(baseAmount: string, price: string): string {
-  return new Decimal(baseAmount).abs().mul(price).toFixed(2, Decimal.ROUND_DOWN);
+  return new Decimal(baseAmount)
+    .abs()
+    .mul(price)
+    .toFixed(2, Decimal.ROUND_DOWN);
 }
 
 export function validateNotional(input: {
   notionalUsd: string;
   minimumUsd: string;
-  maximumUsd: string;
+  availableUsd?: string;
 }): string[] {
   const errors: string[] = [];
   const value = new Decimal(input.notionalUsd || 0);
-  if (!value.isFinite() || !value.isPositive()) errors.push('Enter a positive USD amount.');
+  if (!value.isFinite() || !value.isPositive())
+    errors.push('Enter a positive USD amount.');
   if (value.lt(input.minimumUsd))
-    errors.push(`Minimum order is $${input.minimumUsd}.`);
-  if (value.gt(input.maximumUsd))
-    errors.push(`MVP maximum is $${input.maximumUsd}.`);
+    errors.push(`Minimum executable size is $${input.minimumUsd}.`);
+  if (input.availableUsd && value.gt(input.availableUsd))
+    errors.push(`Available position size is up to $${input.availableUsd}.`);
   return errors;
 }
 

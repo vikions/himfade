@@ -32,7 +32,7 @@ export function VenueSelector({
           <small>Primary route · Ink · EVM wallet</small>
         </span>
         <AttributionBadge ready={nadoReady}>
-          {nadoReady ? 'Attribution ready' : 'Builder config missing'}
+          {nadoReady ? 'Available' : 'Coming soon'}
         </AttributionBadge>
       </button>
       <button
@@ -49,7 +49,7 @@ export function VenueSelector({
           <small>Secondary route · Solana wallet</small>
         </span>
         <AttributionBadge ready={pacificaReady}>
-          {pacificaReady ? 'Configured' : 'Config missing'}
+          {pacificaReady ? 'Available' : 'Coming soon'}
         </AttributionBadge>
         <CaretDown
           size={14}

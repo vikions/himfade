@@ -36,7 +36,8 @@ export class TradingError extends Error {
 
 export function toTradingError(error: unknown): TradingError {
   if (error instanceof TradingError) return error;
-  const message = error instanceof Error ? error.message : 'Unknown protocol error';
+  const message =
+    error instanceof Error ? error.message : 'Unknown protocol error';
   if (/rejected|denied/i.test(message))
     return new TradingError(
       'USER_REJECTED_SIGNATURE',
@@ -47,14 +48,14 @@ export function toTradingError(error: unknown): TradingError {
   if (/2118|InvalidBuilder/i.test(message))
     return new TradingError(
       'INVALID_BUILDER',
-      'Nado rejected the configured builder attribution.',
-      'Confirm the registered builder ID and allowed fee-rate range.',
+      'Nado could not accept this order.',
+      'Please wait a moment and try again.',
       message,
     );
   return new TradingError(
     'NETWORK_FAILURE',
     'The venue request could not be completed.',
-    'Check the network and inspect developer details before retrying.',
+    'Check your connection and try again.',
     message,
   );
 }

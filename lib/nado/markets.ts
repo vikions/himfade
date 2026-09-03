@@ -32,6 +32,14 @@ export async function getNadoMarket(
     .plus(fromNadoX18(quote.ask))
     .div(2)
     .toString();
+  const sizeIncrement = new Decimal(fromNadoX18(market.sizeIncrement));
+  const minimumFeeNotionalUsd = new Decimal(fromNadoX18(market.minSize));
+  const minimumBaseAmount = sizeIncrement.toFixed(
+    sizeIncrement.decimalPlaces(),
+  );
+  const minimumNotionalUsd = sizeIncrement
+    .mul(mid)
+    .toDecimalPlaces(2, Decimal.ROUND_CEIL);
   return {
     venue: 'nado',
     symbol: market.symbol,
@@ -39,9 +47,10 @@ export async function getNadoMarket(
     price: mid,
     priceTimestamp: new Date().toISOString(),
     priceIncrement: fromNadoX18(market.priceIncrement),
-    sizeIncrement: fromNadoX18(market.sizeIncrement),
-    minimumBaseAmount: fromNadoX18(market.minSize),
-    minimumNotionalUsd: new Decimal(fromNadoX18(market.minSize)).mul(mid).toFixed(2),
+    sizeIncrement: sizeIncrement.toString(),
+    minimumBaseAmount,
+    minimumNotionalUsd: minimumNotionalUsd.toFixed(2),
+    minimumFeeNotionalUsd: minimumFeeNotionalUsd.toFixed(2),
     raw: { market, quote },
   };
 }

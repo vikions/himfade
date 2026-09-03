@@ -2,8 +2,8 @@ import type { NadoClient } from '@nadohq/client';
 import { parseAbi, parseAbiItem } from 'viem';
 import { decodeNadoAppendix } from './appendix';
 
-const clearinghouseAbi = parseAbi([
-  'function offchainExchange() view returns (address)',
+const endpointAbi = parseAbi([
+  'function getOffchainExchange() view returns (address)',
 ]);
 const offchainExchangeAbi = parseAbi([
   'function getClaimableBuilderFee(uint32 quoteId, uint32 builderId) view returns (int128)',
@@ -19,9 +19,9 @@ export async function getNadoAttributionEvidence(input: {
 }) {
   const publicClient = input.client.context.publicClient;
   const offchainExchange = await publicClient.readContract({
-    address: input.client.context.contractAddresses.clearinghouse,
-    abi: clearinghouseAbi,
-    functionName: 'offchainExchange',
+    address: input.client.context.contractAddresses.endpoint,
+    abi: endpointAbi,
+    functionName: 'getOffchainExchange',
   });
   const claimable = await publicClient.readContract({
     address: offchainExchange,
@@ -30,13 +30,18 @@ export async function getNadoAttributionEvidence(input: {
     args: [0, input.builderId],
   });
   const events = input.digest
-    ? (await publicClient.getLogs({
-        address: offchainExchange,
-        event: builderFeePaymentEvent,
-        args: { builder: input.builderId },
-        fromBlock: 'earliest',
-        toBlock: 'latest',
-      })).filter((event) => event.args.digest?.toLowerCase() === input.digest?.toLowerCase())
+    ? (
+        await publicClient.getLogs({
+          address: offchainExchange,
+          event: builderFeePaymentEvent,
+          args: { builder: input.builderId },
+          fromBlock: 'earliest',
+          toBlock: 'latest',
+        })
+      ).filter(
+        (event) =>
+          event.args.digest?.toLowerCase() === input.digest?.toLowerCase(),
+      )
     : [];
   return { offchainExchange, claimable: claimable.toString(), events };
 }

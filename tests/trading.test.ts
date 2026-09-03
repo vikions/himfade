@@ -24,10 +24,28 @@ describe('trading math', () => {
     expect(roundDownToIncrement('0.000099999', '0.0001')).toBe('0.0000');
   });
 
-  it('validates minimum and configured maximum', () => {
-    expect(validateNotional({ notionalUsd: '9.99', minimumUsd: '10', maximumUsd: '100' })).toContain('Minimum order is $10.');
-    expect(validateNotional({ notionalUsd: '100.01', minimumUsd: '10', maximumUsd: '100' })).toContain('MVP maximum is $100.');
-    expect(validateNotional({ notionalUsd: '25', minimumUsd: '10', maximumUsd: '100' })).toEqual([]);
+  it('validates the executable lot and connected account capacity', () => {
+    expect(
+      validateNotional({
+        notionalUsd: '2.39',
+        minimumUsd: '2.40',
+        availableUsd: '120',
+      }),
+    ).toContain('Minimum executable size is $2.40.');
+    expect(
+      validateNotional({
+        notionalUsd: '120.01',
+        minimumUsd: '2.40',
+        availableUsd: '120',
+      }),
+    ).toContain('Available position size is up to $120.');
+    expect(
+      validateNotional({
+        notionalUsd: '10',
+        minimumUsd: '2.40',
+        availableUsd: '120',
+      }),
+    ).toEqual([]);
   });
 
   it('detects stale prices at the boundary', () => {
