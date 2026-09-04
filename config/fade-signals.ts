@@ -9,6 +9,13 @@ export type FadeSignal = {
   pnl1dUsd?: number;
   pnl7dUsd?: number;
   pnl30dUsd?: number;
+  performancePnlUsd?: number;
+  performanceWindowDays?: number;
+  performanceWindowComplete?: boolean;
+  performanceWindowStart?: string;
+  closedOrderCount?: number;
+  candidateCount?: number;
+  selectionMethod?: string;
   winRatePercent?: number;
   liquidationCount?: number;
   updatedAt: string;
@@ -17,15 +24,21 @@ export type FadeSignal = {
   isLiveData: boolean;
 };
 
+export type FadeSignalFeed = {
+  status: 'live' | 'unavailable';
+  checkedAt: string;
+  signal?: FadeSignal;
+  reason?: string;
+};
+
 export const featuredSignal: FadeSignal = {
   id: 'nado-mainnet-signal-feed',
-  alias: 'THE ETERNAL BULL',
+  alias: 'NO VERIFIED TARGET',
   sourceVenue: 'nado',
-  walletAddress: '0x000000000000000000000000000000000000dEaD',
+  walletAddress: '',
   symbol: 'ETH',
   positionSide: 'long',
-  positionNotionalUsd: 18420,
-  updatedAt: '2026-07-23T00:00:00.000Z',
+  updatedAt: '1970-01-01T00:00:00.000Z',
   dataSourceLabel: 'Nado mainnet signal adapter',
   isLiveData: false,
 };

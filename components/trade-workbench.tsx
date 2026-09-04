@@ -49,9 +49,11 @@ type MarketPreview = {
 
 export function TradeWorkbench({
   signal,
+  signalReady,
   env,
 }: {
   signal: FadeSignal;
+  signalReady: boolean;
   env: PublicEnv;
 }) {
   const [venue, setVenue] = useState<Venue>('nado');
@@ -218,6 +220,13 @@ export function TradeWorkbench({
 
   async function handleReview() {
     setError(null);
+    if (!signalReady) {
+      setError(
+        'A verified live target is not available yet. Try again after the signal refreshes.',
+      );
+      setStatus('Signal unavailable');
+      return;
+    }
     const selectedConfig = venue === 'nado' ? nadoConfig : pacificaConfig;
     const venueName = venue === 'nado' ? 'Nado' : 'Pacifica';
     if (!selectedConfig.ready) {
@@ -504,6 +513,7 @@ export function TradeWorkbench({
           </div>
         )}
       <FadeTicket
+        signalReady={signalReady}
         targetSide={signal.positionSide}
         fadeSide={fadeSide}
         symbol={signal.symbol}
@@ -532,10 +542,16 @@ export function TradeWorkbench({
       )}
       <button
         className="fade-button"
-        disabled={pending || validationErrors.length > 0}
+        disabled={!signalReady || pending || validationErrors.length > 0}
         onClick={handleReview}
       >
-        <span>{pending ? 'PREPARING' : `FADE ON ${venue.toUpperCase()}`}</span>
+        <span>
+          {!signalReady
+            ? 'WAITING FOR LIVE SIGNAL'
+            : pending
+              ? 'PREPARING'
+              : `FADE ON ${venue.toUpperCase()}`}
+        </span>
         <ArrowRight size={19} weight="bold" />
       </button>
       <p className="button-footnote">

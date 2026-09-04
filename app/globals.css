@@ -213,6 +213,59 @@ header .wallet-adapter-button.wallet-adapter-button-trigger {
     monospace;
   letter-spacing: -0.05em;
 }
+.metric-grid small,
+.position-caption {
+  color: #74716a;
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+.signal-address {
+  overflow-wrap: anywhere;
+  letter-spacing: -0.035em;
+}
+.signal-state {
+  color: #9b9890;
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.signal-proof {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.65rem;
+  color: #77746d;
+  font-size: 0.67rem;
+  line-height: 1.55;
+}
+.signal-proof p {
+  max-width: 68ch;
+  margin: 0;
+}
+.signal-proof > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+}
+.signal-proof a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #aebbac;
+}
+.signal-proof a:hover {
+  color: #d6e0d7;
+}
+.dossier-unavailable {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.signal-waiting {
+  grid-column: 1 / -1;
+}
+.signal-waiting strong {
+  color: #a4a198;
+}
 .direction-split {
   display: grid;
   grid-template-columns: 1fr auto 1fr;

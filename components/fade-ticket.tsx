@@ -4,6 +4,7 @@ import Decimal from 'decimal.js';
 import type { PositionSide, Venue } from '@/lib/trading/types';
 
 export function FadeTicket({
+  signalReady,
   targetSide,
   fadeSide,
   symbol,
@@ -18,6 +19,7 @@ export function FadeTicket({
   minimumFeeNotional,
   errors,
 }: {
+  signalReady: boolean;
   targetSide: PositionSide;
   fadeSide: PositionSide;
   symbol: string;
@@ -54,19 +56,28 @@ export function FadeTicket({
   return (
     <div className="ticket-fields">
       <div className="trade-equation">
-        <div>
-          <span>Target</span>
-          <strong>
-            {targetSide.toUpperCase()} {symbol}
-          </strong>
-        </div>
-        <div className="equation-line" />
-        <div>
-          <span>Your fade</span>
-          <strong>
-            {fadeSide.toUpperCase()} {symbol}
-          </strong>
-        </div>
+        {signalReady ? (
+          <>
+            <div>
+              <span>Target</span>
+              <strong>
+                {targetSide.toUpperCase()} {symbol}
+              </strong>
+            </div>
+            <div className="equation-line" />
+            <div>
+              <span>Your fade</span>
+              <strong>
+                {fadeSide.toUpperCase()} {symbol}
+              </strong>
+            </div>
+          </>
+        ) : (
+          <div className="signal-waiting">
+            <span>Target</span>
+            <strong>Waiting for a verified open position</strong>
+          </div>
+        )}
       </div>
       <label className="input-block">
         <span>USD NOTIONAL</span>
@@ -76,27 +87,28 @@ export function FadeTicket({
             aria-label="USD notional"
             inputMode="decimal"
             value={notional}
+            disabled={!signalReady}
             onChange={(event) => onNotionalChange(event.target.value)}
           />
         </div>
         <div className="size-presets" aria-label="Position size presets">
           <button
             type="button"
-            disabled={!availablePosition}
+            disabled={!signalReady || !availablePosition}
             onClick={() => applyPreset('0.25')}
           >
             25%
           </button>
           <button
             type="button"
-            disabled={!availablePosition}
+            disabled={!signalReady || !availablePosition}
             onClick={() => applyPreset('0.5')}
           >
             50%
           </button>
           <button
             type="button"
-            disabled={!availablePosition}
+            disabled={!signalReady || !availablePosition}
             onClick={() => applyPreset('1')}
           >
             MAX
