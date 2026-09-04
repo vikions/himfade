@@ -105,4 +105,39 @@ describe('Nado funding and capacity', () => {
       maximumNotionalUsd: '120.00',
     });
   });
+
+  it('preserves deposited balance data when max_order_size is unavailable', async () => {
+    const client = {
+      spot: { getTokenWalletBalance: vi.fn().mockResolvedValue(0n) },
+      subaccount: {
+        getSubaccountSummary: vi.fn().mockResolvedValue({
+          exists: true,
+          balances: [],
+          health: {
+            unweighted: { health: new BigNumber(5).times(x18) },
+            initial: { health: new BigNumber(5).times(x18) },
+          },
+        }),
+      },
+      market: {
+        getMaxOrderSize: vi.fn().mockRejectedValue(new Error('unavailable')),
+      },
+    } as unknown as NadoClient;
+
+    await expect(
+      getNadoAccountOverview({
+        client,
+        wallet: '0x0000000000000000000000000000000000000001',
+        subaccountName: 'default',
+        productId: 2,
+        side: 'short',
+        price: '3200',
+      }),
+    ).resolves.toEqual({
+      exists: true,
+      walletBalanceUsd: '0',
+      accountEquityUsd: '5',
+      availableCollateralUsd: '5',
+    });
+  });
 });

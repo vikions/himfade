@@ -109,23 +109,31 @@ export async function getNadoAccountOverview(input: {
   };
   if (!summary.exists) return overview;
 
-  const maximumBaseAmount = await input.client.market.getMaxOrderSize({
-    subaccountOwner: input.wallet,
-    subaccountName,
-    productId: input.productId,
-    price: new BigNumber(input.price),
-    side: input.side,
-    reduceOnly: false,
-  });
-
-  const maximumBase = fromNadoX18(maximumBaseAmount);
-  return {
+  const fundedOverview: NadoAccountOverview = {
     ...overview,
     accountEquityUsd: fromNadoX18(summary.health.unweighted.health),
     availableCollateralUsd: fromNadoX18(summary.health.initial.health),
-    maximumBaseAmount: maximumBase,
-    maximumNotionalUsd: new Decimal(maximumBase)
-      .mul(input.price)
-      .toFixed(2, Decimal.ROUND_DOWN),
   };
+
+  try {
+    const maximumBaseAmount = await input.client.market.getMaxOrderSize({
+      subaccountOwner: input.wallet,
+      subaccountName,
+      productId: input.productId,
+      price: new BigNumber(input.price),
+      side: input.side,
+      reduceOnly: false,
+    });
+
+    const maximumBase = fromNadoX18(maximumBaseAmount);
+    return {
+      ...fundedOverview,
+      maximumBaseAmount: maximumBase,
+      maximumNotionalUsd: new Decimal(maximumBase)
+        .mul(input.price)
+        .toFixed(2, Decimal.ROUND_DOWN),
+    };
+  } catch {
+    return fundedOverview;
+  }
 }
