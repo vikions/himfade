@@ -19,16 +19,7 @@ export type NadoAccountOverview = {
 };
 
 export function toNadoWithdrawalUnits(amountUsd: string): string {
-  const amount = new Decimal(amountUsd);
-  if (!amount.isFinite() || !amount.isPositive()) {
-    throw new Error('Withdrawal amount must be greater than zero.');
-  }
-  if (amount.decimalPlaces() > QUOTE_DECIMALS) {
-    throw new Error(
-      `Withdrawal amount supports up to ${QUOTE_DECIMALS} decimal places.`,
-    );
-  }
-  return amount.mul(new Decimal(10).pow(18)).toFixed(0);
+  return toQuoteTokenUnits(amountUsd);
 }
 
 export function toQuoteTokenUnits(amountUsd: string): string {
@@ -106,13 +97,16 @@ export async function withdrawNadoCollateral(input: {
 }): Promise<unknown> {
   const subaccountName = input.subaccountName ?? 'default';
   const amount = toNadoWithdrawalUnits(input.amountUsd);
+  const normalizedAmount = new BigNumber(input.amountUsd).times(
+    new BigNumber(10).pow(18),
+  );
   input.onStatus?.('checking');
   const maximum = await input.client.spot.getMaxWithdrawable({
     subaccountOwner: input.wallet,
     subaccountName,
     productId: QUOTE_PRODUCT_ID,
   });
-  if (new BigNumber(amount).gt(maximum)) {
+  if (normalizedAmount.gt(maximum)) {
     throw new Error(
       `The maximum withdrawable amount is $${fromNadoX18(maximum)}.`,
     );
@@ -166,7 +160,11 @@ export async function getNadoAccountOverview(input: {
       subaccountName,
       productId: QUOTE_PRODUCT_ID,
     });
-    fundedOverview.maximumWithdrawableUsd = fromNadoX18(maximumWithdrawable);
+    fundedOverview.maximumWithdrawableUsd = new Decimal(
+      fromNadoX18(maximumWithdrawable),
+    )
+      .toDecimalPlaces(QUOTE_DECIMALS, Decimal.ROUND_DOWN)
+      .toString();
   } catch {
     // Balance and position data remain useful when the withdrawal quote is unavailable.
   }

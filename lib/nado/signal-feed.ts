@@ -3,7 +3,7 @@ import {
   aggregatePerformance,
   buildCandidateScores,
   candidateKey,
-  selectWorstActiveCandidate,
+  selectWorstActiveCandidates,
   type ActivePosition,
   type CandidateScore,
   type ClosedOrder,
@@ -15,6 +15,8 @@ const DISCOVERY_MATCH_LIMIT = 200;
 const CANDIDATE_LIMIT = 12;
 const HISTORY_RECORD_LIMIT = 1_000;
 const POSITION_LOOKUP_CONCURRENCY = 4;
+const HISTORY_LOOKUP_CONCURRENCY = 3;
+const SIGNAL_LIMIT = 5;
 
 export type NadoPerformanceHistory = {
   orders: ClosedOrder[];
@@ -64,62 +66,94 @@ export async function loadFeaturedNadoSignal(
       }
     }
 
-    const selected = selectWorstActiveCandidate(candidates, positions);
-    if (!selected) {
+    const selected = selectWorstActiveCandidates(
+      candidates,
+      positions,
+      SIGNAL_LIMIT,
+    );
+    if (!selected.length) {
       return {
         status: 'unavailable',
         checkedAt,
+        signals: [],
         reason:
           'No recently active losing account has a verified open position.',
       };
     }
 
     const since = now - 30 * DAY_MS;
-    const history = await source.getPerformanceHistory(selected.candidate, {
-      since,
-      until: now,
-      maxRecords: HISTORY_RECORD_LIMIT,
+    const historyResults = await mapSettledWithConcurrency(
+      selected,
+      HISTORY_LOOKUP_CONCURRENCY,
+      async ({ candidate, position }) => {
+        const history = await source.getPerformanceHistory(candidate, {
+          since,
+          until: now,
+          maxRecords: HISTORY_RECORD_LIMIT,
+        });
+        return {
+          candidate,
+          position,
+          performance: aggregatePerformance({
+            now,
+            historyComplete: history.historyComplete,
+            orders: history.orders,
+            liquidationTimestamps: history.liquidationTimestamps,
+          }),
+        };
+      },
+    );
+    const signals = historyResults.flatMap((result) => {
+      if (result.status !== 'fulfilled') return [];
+      const { candidate, position, performance } = result.value;
+      return [
+        {
+          id: candidateKey(candidate),
+          alias: 'NADO ACCOUNT',
+          sourceVenue: 'nado' as const,
+          walletAddress: candidate.subaccountOwner,
+          symbol: position.symbol,
+          positionSide: position.side,
+          positionNotionalUsd: position.notionalUsd,
+          pnl30dUsd: performance.windowComplete
+            ? performance.realizedPnlUsd
+            : undefined,
+          performancePnlUsd: performance.realizedPnlUsd,
+          performanceWindowDays: performance.observedDays,
+          performanceWindowComplete: performance.windowComplete,
+          performanceWindowStart: performance.observedFrom,
+          winRatePercent: performance.winRatePercent,
+          liquidationCount: performance.liquidationCount,
+          closedOrderCount: performance.closedOrderCount,
+          candidateCount: candidates.length,
+          selectionMethod: 'Worst realized PnL in recent public maker activity',
+          updatedAt: checkedAt,
+          dataSourceLabel: 'Nado public archive + gateway',
+          dataSourceUrl: 'https://docs.nado.xyz/developer-resources/api',
+          isLiveData: true,
+        },
+      ];
     });
-    const performance = aggregatePerformance({
-      now,
-      historyComplete: history.historyComplete,
-      orders: history.orders,
-      liquidationTimestamps: history.liquidationTimestamps,
-    });
+
+    if (!signals.length) {
+      return {
+        status: 'unavailable',
+        checkedAt,
+        signals: [],
+        reason: 'Verified target history is temporarily unavailable.',
+      };
+    }
 
     return {
       status: 'live',
       checkedAt,
-      signal: {
-        id: candidateKey(selected.candidate),
-        alias: 'NADO ACCOUNT',
-        sourceVenue: 'nado',
-        walletAddress: selected.candidate.subaccountOwner,
-        symbol: selected.position.symbol,
-        positionSide: selected.position.side,
-        positionNotionalUsd: selected.position.notionalUsd,
-        pnl30dUsd: performance.windowComplete
-          ? performance.realizedPnlUsd
-          : undefined,
-        performancePnlUsd: performance.realizedPnlUsd,
-        performanceWindowDays: performance.observedDays,
-        performanceWindowComplete: performance.windowComplete,
-        performanceWindowStart: performance.observedFrom,
-        winRatePercent: performance.winRatePercent,
-        liquidationCount: performance.liquidationCount,
-        closedOrderCount: performance.closedOrderCount,
-        candidateCount: candidates.length,
-        selectionMethod: 'Worst realized PnL in recent public maker activity',
-        updatedAt: checkedAt,
-        dataSourceLabel: 'Nado public archive + gateway',
-        dataSourceUrl: 'https://docs.nado.xyz/developer-resources/api',
-        isLiveData: true,
-      },
+      signals,
     };
   } catch {
     return {
       status: 'unavailable',
       checkedAt,
+      signals: [],
       reason: 'Nado public data is temporarily unavailable.',
     };
   }

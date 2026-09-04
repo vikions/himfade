@@ -13,7 +13,7 @@ const loadCachedFeaturedNadoSignal = unstable_cache(
     );
     return loadFeaturedNadoSignal(source);
   },
-  ['nado-featured-signal-v1'],
+  ['nado-featured-signals-v2'],
   { revalidate: 300 },
 );
 

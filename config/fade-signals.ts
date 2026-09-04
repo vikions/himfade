@@ -27,7 +27,7 @@ export type FadeSignal = {
 export type FadeSignalFeed = {
   status: 'live' | 'unavailable';
   checkedAt: string;
-  signal?: FadeSignal;
+  signals: FadeSignal[];
   reason?: string;
 };
 

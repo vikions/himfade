@@ -91,11 +91,26 @@ export function selectWorstActiveCandidate(
   candidates: CandidateScore[],
   positions: ReadonlyMap<string, ActivePosition>,
 ) {
+  return selectWorstActiveCandidates(candidates, positions, 1)[0] ?? null;
+}
+
+export function selectWorstActiveCandidates(
+  candidates: CandidateScore[],
+  positions: ReadonlyMap<string, ActivePosition>,
+  limit: number,
+) {
+  const selected: Array<{
+    candidate: CandidateScore;
+    position: ActivePosition;
+  }> = [];
+
   for (const candidate of candidates) {
     const position = positions.get(candidateKey(candidate));
-    if (position) return { candidate, position };
+    if (position) selected.push({ candidate, position });
+    if (selected.length >= Math.max(0, limit)) break;
   }
-  return null;
+
+  return selected;
 }
 
 export function aggregatePerformance(input: {

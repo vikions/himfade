@@ -48,6 +48,7 @@ import { WithdrawalReviewDialog } from './withdrawal-review-dialog';
 
 type MarketPreview = {
   venue: Venue;
+  symbol: string;
   price: string;
   sizeIncrement: string;
   minimumUsd: string;
@@ -59,10 +60,12 @@ export function TradeWorkbench({
   signal,
   signalReady,
   env,
+  onSelectionLockChange,
 }: {
   signal: FadeSignal;
   signalReady: boolean;
   env: PublicEnv;
+  onSelectionLockChange?: (locked: boolean) => void;
 }) {
   const [venue, setVenue] = useState<Venue>('nado');
   const [notional, setNotional] = useState(
@@ -95,6 +98,7 @@ export function TradeWorkbench({
   );
   const [marketFailure, setMarketFailure] = useState<{
     venue: Venue;
+    symbol: string;
     message: string;
   } | null>(null);
   const adapterRef = useRef<VenueAdapter | null>(null);
@@ -108,9 +112,14 @@ export function TradeWorkbench({
   const nadoConfig = getVenueConfigStatus(env, 'nado');
   const pacificaConfig = getVenueConfigStatus(env, 'pacifica');
   const fadeSide = reverseSide(signal.positionSide);
-  const activeMarket = marketPreview?.venue === venue ? marketPreview : null;
+  const activeMarket =
+    marketPreview?.venue === venue && marketPreview.symbol === signal.symbol
+      ? marketPreview
+      : null;
   const activeMarketFailure =
-    marketFailure?.venue === venue ? marketFailure.message : null;
+    marketFailure?.venue === venue && marketFailure.symbol === signal.symbol
+      ? marketFailure.message
+      : null;
 
   useEffect(() => {
     let active = true;
@@ -126,8 +135,10 @@ export function TradeWorkbench({
               signal.symbol,
             );
       if (active) {
+        setMarketFailure(null);
         setMarketPreview({
           venue,
+          symbol: signal.symbol,
           price: market.price,
           sizeIncrement: market.sizeIncrement,
           minimumUsd: market.minimumNotionalUsd,
@@ -139,6 +150,7 @@ export function TradeWorkbench({
       if (active) {
         setMarketFailure({
           venue,
+          symbol: signal.symbol,
           message: `${venue === 'nado' ? 'Nado' : 'Pacifica'} market data is temporarily unavailable.`,
         });
       }
@@ -152,6 +164,11 @@ export function TradeWorkbench({
     signal.symbol,
     venue,
   ]);
+
+  useEffect(() => {
+    onSelectionLockChange?.(pending || prepared !== null);
+    return () => onSelectionLockChange?.(false);
+  }, [onSelectionLockChange, pending, prepared]);
 
   useEffect(() => {
     let active = true;

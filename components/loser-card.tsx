@@ -2,8 +2,10 @@ import {
   ArrowDown,
   ArrowSquareOut,
   ArrowUpRight,
+  LockSimple,
 } from '@phosphor-icons/react/dist/ssr';
-import type { FadeSignalFeed } from '@/config/fade-signals';
+import type { CSSProperties } from 'react';
+import type { FadeSignal, FadeSignalFeed } from '@/config/fade-signals';
 import { reverseSide } from '@/lib/trading/reverse-side';
 
 function short(value: string) {
@@ -29,28 +31,176 @@ function updated(value: string) {
   }).format(new Date(value));
 }
 
-export function LoserCard({ feed }: { feed: FadeSignalFeed }) {
-  if (!feed.signal) return <UnavailableSignal feed={feed} />;
+export function SignalDesk({
+  feed,
+  selectedId,
+  selectionLocked,
+  onSelect,
+}: {
+  feed: FadeSignalFeed;
+  selectedId: string;
+  selectionLocked: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const selected =
+    feed.signals.find((signal) => signal.id === selectedId) ?? feed.signals[0];
+  if (!selected) return <UnavailableSignal feed={feed} />;
 
-  const signal = feed.signal;
+  const selectedRank = feed.signals.findIndex(
+    (signal) => signal.id === selected.id,
+  );
+
+  return (
+    <article className="dossier signal-desk animate-enter">
+      <header className="signal-desk-heading">
+        <div>
+          <p className="desk-kicker">Live signal desk</p>
+          <h2>Choose who to fade.</h2>
+          <p>
+            {feed.signals.length} verified open{' '}
+            {feed.signals.length === 1 ? 'position' : 'positions'}, ranked by
+            observed losses.
+          </p>
+        </div>
+        <div className="desk-live-state" title="Public Nado data">
+          <span aria-hidden="true" />
+          <strong>LIVE</strong>
+          <small>5 MIN CACHE</small>
+        </div>
+      </header>
+
+      <div
+        className="signal-stack"
+        role="group"
+        aria-label="Verified Nado accounts to fade"
+      >
+        {feed.signals.map((signal, index) => (
+          <SignalRow
+            key={signal.id}
+            signal={signal}
+            rank={index + 1}
+            index={index}
+            selected={signal.id === selected.id}
+            disabled={selectionLocked}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+
+      {selectionLocked && (
+        <p className="selection-lock" role="status">
+          <LockSimple size={13} weight="fill" /> Target locked while the order
+          is being reviewed.
+        </p>
+      )}
+
+      <SelectedSignal signal={selected} rank={selectedRank + 1} />
+    </article>
+  );
+}
+
+function SignalRow({
+  signal,
+  rank,
+  index,
+  selected,
+  disabled,
+  onSelect,
+}: {
+  signal: FadeSignal;
+  rank: number;
+  index: number;
+  selected: boolean;
+  disabled: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const window = signal.performanceWindowComplete
+    ? '30D PNL'
+    : `${signal.performanceWindowDays ?? 0}D PNL`;
+  const market = signal.symbol.replace(/-PERP$/i, '');
+  const tilt = [-1.4, 0.8, -0.5, 1.2, -0.9][index] ?? 0;
+  const palette = [
+    ['#ed9188', 'rgba(237, 145, 136, 0.11)'],
+    ['#e8b975', 'rgba(232, 185, 117, 0.1)'],
+    ['#7fc8d6', 'rgba(127, 200, 214, 0.1)'],
+    ['#b8a2de', 'rgba(184, 162, 222, 0.1)'],
+    ['#8fc49d', 'rgba(143, 196, 157, 0.1)'],
+  ][index % 5]!;
+  const style = {
+    '--card-index': index,
+    '--card-tilt': `${tilt}deg`,
+    '--card-accent': palette[0],
+    '--card-wash': palette[1],
+  } as CSSProperties;
+
+  return (
+    <button
+      type="button"
+      className="loser-card"
+      aria-pressed={selected}
+      aria-label={`Fade ${signal.positionSide} ${signal.symbol} position from ${short(signal.walletAddress)}`}
+      disabled={disabled}
+      style={style}
+      onClick={(event) => {
+        event.currentTarget.scrollIntoView?.({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center',
+        });
+        onSelect(signal.id);
+      }}
+    >
+      <span className="loser-card-topline">
+        <span className="signal-rank">#{String(rank).padStart(2, '0')}</span>
+        <span className="loser-card-live">
+          <i aria-hidden="true" /> LIVE
+        </span>
+      </span>
+      <span className="loser-card-emblem" aria-hidden="true">
+        <strong>{market}</strong>
+        <small>{signal.positionSide.toUpperCase()}</small>
+      </span>
+      <span className="loser-card-account">
+        <strong>{short(signal.walletAddress)}</strong>
+        <small>NADO ACCOUNT</small>
+      </span>
+      <span className="loser-card-score">
+        <small>{window}</small>
+        <strong>{money(signal.performancePnlUsd ?? 0)}</strong>
+      </span>
+      <span className="loser-card-action">
+        <span>FADE {reverseSide(signal.positionSide).toUpperCase()}</span>
+        <ArrowUpRight size={16} weight="bold" />
+      </span>
+    </button>
+  );
+}
+
+function SelectedSignal({
+  signal,
+  rank,
+}: {
+  signal: FadeSignal;
+  rank: number;
+}) {
   const fade = reverseSide(signal.positionSide);
   const windowLabel = signal.performanceWindowComplete
     ? '30D REALIZED PNL'
     : `${signal.performanceWindowDays ?? 0}D OBSERVED PNL`;
 
   return (
-    <article className="dossier animate-enter">
-      <div className="flex items-start justify-between gap-4">
+    <section
+      id="selected-signal-dossier"
+      className="selected-signal"
+      aria-live="polite"
+    >
+      <div className="selected-signal-heading">
         <div className="min-w-0">
-          <p className="eyebrow text-red-300/80">
-            Worst in recent public maker activity
+          <p>
+            Selected target <span>RANK #{rank}</span>
           </p>
-          <h2 className="signal-address mt-4 text-3xl font-medium text-stone-100 md:text-5xl">
-            {short(signal.walletAddress)}
-          </h2>
-          <p className="mt-2 font-mono text-xs text-stone-500">
-            ACTIVE NADO ACCOUNT · INK MAINNET
-          </p>
+          <h3 className="signal-address">{short(signal.walletAddress)}</h3>
+          <small>ACTIVE NADO ACCOUNT · INK MAINNET</small>
         </div>
         <div className="loss-seal">
           <ArrowDown size={22} weight="bold" />
@@ -58,7 +208,7 @@ export function LoserCard({ feed }: { feed: FadeSignalFeed }) {
         </div>
       </div>
 
-      <div className="metric-grid mt-14">
+      <div className="metric-grid selected-metrics">
         <div>
           <span>{windowLabel}</span>
           <strong className="text-red-300">
@@ -77,7 +227,7 @@ export function LoserCard({ feed }: { feed: FadeSignalFeed }) {
         </div>
       </div>
 
-      <div className="direction-split mt-12">
+      <div className="direction-split selected-direction">
         <div>
           <span>THEIR OPEN POSITION</span>
           <strong className="text-red-200">
@@ -99,10 +249,10 @@ export function LoserCard({ feed }: { feed: FadeSignalFeed }) {
         </div>
       </div>
 
-      <div className="signal-proof mt-10 border-t border-white/10 pt-5">
+      <div className="signal-proof selected-proof">
         <p>
-          Selected from {signal.candidateCount ?? 0} losing candidates in the
-          latest public maker sample; current position verified before display.
+          Ranked from {signal.candidateCount ?? 0} losing candidates in the
+          latest public maker sample; this position was verified before display.
         </p>
         <div>
           <a
@@ -120,7 +270,7 @@ export function LoserCard({ feed }: { feed: FadeSignalFeed }) {
         </div>
         <small>Refreshed {updated(signal.updatedAt)}</small>
       </div>
-    </article>
+    </section>
   );
 }
 
@@ -128,7 +278,7 @@ function UnavailableSignal({ feed }: { feed: FadeSignalFeed }) {
   return (
     <article className="dossier dossier-unavailable animate-enter">
       <div>
-        <p className="eyebrow text-red-300/80">Live ranking unavailable</p>
+        <p className="desk-kicker">Live signal desk</p>
         <h2 className="mt-4 max-w-[14ch] text-3xl font-medium text-stone-100 md:text-5xl">
           No verified target right now.
         </h2>

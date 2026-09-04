@@ -4,6 +4,7 @@ import {
   buildCandidateScores,
   candidateKey,
   selectWorstActiveCandidate,
+  selectWorstActiveCandidates,
   type ActivePosition,
 } from '@/lib/nado/signal-ranking';
 
@@ -58,6 +59,36 @@ describe('Nado signal ranking', () => {
       candidate: scores[1],
       position,
     });
+  });
+
+  it('selects multiple active candidates in ranking order up to the limit', () => {
+    const scores = buildCandidateScores(
+      [
+        match('0xflat', -50, 1_000),
+        match('0xworst', -30, 2_000),
+        match('0xsecond', -20, 3_000),
+        match('0xthird', -10, 4_000),
+      ],
+      10,
+    );
+    const position: ActivePosition = {
+      symbol: 'BTC-PERP',
+      productId: 1,
+      side: 'long',
+      baseAmount: 0.1,
+      notionalUsd: 8_000,
+    };
+    const active = new Map(
+      scores
+        .filter((candidate) => candidate.subaccountOwner !== '0xflat')
+        .map((candidate) => [candidateKey(candidate), position]),
+    );
+
+    expect(
+      selectWorstActiveCandidates(scores, active, 2).map(
+        ({ candidate }) => candidate.subaccountOwner,
+      ),
+    ).toEqual(['0xworst', '0xsecond']);
   });
 
   it('computes closed-order PnL and win rate over a complete 30-day window', () => {

@@ -16,7 +16,7 @@ describe('Nado funding and capacity', () => {
   it('converts USDT0 wallet units without floating point drift', () => {
     expect(toQuoteTokenUnits('10.25')).toBe('10250000');
     expect(fromQuoteTokenUnits(12_500_000n)).toBe('12.5');
-    expect(toNadoWithdrawalUnits('4.25')).toBe('4250000000000000000');
+    expect(toNadoWithdrawalUnits('4.25')).toBe('4250000');
   });
 
   it('approves only when needed and deposits into the default subaccount', async () => {
@@ -175,8 +175,43 @@ describe('Nado funding and capacity', () => {
     expect(withdraw).toHaveBeenCalledWith({
       subaccountName: 'default',
       productId: 0,
-      amount: '4250000000000000000',
+      amount: '4250000',
     });
+  });
+
+  it('rounds the x18 withdrawal quote down to USDT0 precision', async () => {
+    const client = {
+      spot: {
+        getTokenWalletBalance: vi.fn().mockResolvedValue(0n),
+        getMaxWithdrawable: vi
+          .fn()
+          .mockResolvedValue(new BigNumber('3.854936218936565297').times(x18)),
+      },
+      subaccount: {
+        getSubaccountSummary: vi.fn().mockResolvedValue({
+          exists: true,
+          balances: [],
+          health: {
+            unweighted: { health: new BigNumber(5).times(x18) },
+            initial: { health: new BigNumber(5).times(x18) },
+          },
+        }),
+      },
+      market: {
+        getMaxOrderSize: vi.fn().mockRejectedValue(new Error('unavailable')),
+      },
+    } as unknown as NadoClient;
+
+    const overview = await getNadoAccountOverview({
+      client,
+      wallet: '0x0000000000000000000000000000000000000001',
+      subaccountName: 'default',
+      productId: 2,
+      side: 'short',
+      price: '3200',
+    });
+
+    expect(overview.maximumWithdrawableUsd).toBe('3.854936');
   });
 
   it('blocks withdrawals above the engine maximum before requesting a signature', async () => {
