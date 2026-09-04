@@ -17,15 +17,15 @@ function nadoClient(): NadoClient {
           ETH: {
             symbol: 'ETH',
             productId: 2,
-            priceIncrement: new BigNumber('0.1').multipliedBy(x18),
+            priceIncrement: new BigNumber('0.1'),
             sizeIncrement: new BigNumber('0.0001').multipliedBy(x18),
             minSize: new BigNumber('10').multipliedBy(x18),
           },
         },
       }),
       getLatestMarketPrice: vi.fn().mockResolvedValue({
-        bid: new BigNumber('3199').multipliedBy(x18),
-        ask: new BigNumber('3201').multipliedBy(x18),
+        bid: new BigNumber('3199'),
+        ask: new BigNumber('3201'),
       }),
     },
   } as unknown as NadoClient;
@@ -53,6 +53,45 @@ describe('Nado market metadata', () => {
     });
 
     expect(prepared.estimatedBaseAmount).toBe('0.0015');
+  });
+
+  it('keeps SDK prices human-readable when preparing a BTC order', async () => {
+    const x18 = new BigNumber(10).pow(18);
+    const client = {
+      market: {
+        getSymbols: vi.fn().mockResolvedValue({
+          symbols: {
+            BTC: {
+              symbol: 'BTC',
+              productId: 1,
+              priceIncrement: new BigNumber('0.1'),
+              sizeIncrement: new BigNumber('0.00001').multipliedBy(x18),
+              minSize: new BigNumber('10').multipliedBy(x18),
+            },
+          },
+        }),
+        getLatestMarketPrice: vi.fn().mockResolvedValue({
+          bid: new BigNumber('80990'),
+          ask: new BigNumber('81010'),
+        }),
+      },
+    } as unknown as NadoClient;
+
+    const prepared = await prepareNadoMarketOrder({
+      client,
+      symbol: 'BTC',
+      side: 'short',
+      notionalUsd: '15',
+      slippageBps: 100,
+      subaccountName: 'default',
+      builderId: 4242,
+      builderFeeRate: 7,
+    });
+    const payload = prepared.payload as NadoPreparedPayload;
+
+    expect(prepared.estimatedBaseAmount).toBe('0.00018');
+    expect(payload.order.price.toFixed()).toBe('80180.1');
+    expect(payload.order.amount.toFixed()).toBe('-180000000000000');
   });
 
   it('puts the configured Builder ID on both opening and reduce-only closing orders', async () => {

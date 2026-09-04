@@ -41,14 +41,14 @@ export async function prepareNadoMarketOrder(input: {
   const aggressivePrice = input.side === 'long'
     ? priceRaw.multipliedBy(new BigNumber(1).plus(slippage))
     : priceRaw.multipliedBy(new BigNumber(1).minus(slippage));
-  const priceIncrement = toNadoX18(market.priceIncrement);
+  const priceIncrement = new BigNumber(market.priceIncrement);
   const price = aggressivePrice
     .div(priceIncrement)
     .integerValue(input.side === 'long' ? BigNumber.ROUND_CEIL : BigNumber.ROUND_FLOOR)
     .multipliedBy(priceIncrement);
   const baseAmount = input.exactBaseAmount ?? notionalToBaseAmount(
     input.notionalUsd,
-    fromNadoX18(priceRaw),
+    priceRaw.toFixed(),
     market.sizeIncrement,
   );
   if (new Decimal(baseAmount).lte(0)) {
@@ -102,8 +102,8 @@ export async function prepareNadoMarketOrder(input: {
     payload,
     debug: {
       productId: market.productId,
-      aggressiveLimitPrice: fromNadoX18(price),
-      notionalAfterRounding: calculateNotional(baseAmount, fromNadoX18(priceRaw)),
+      aggressiveLimitPrice: price.toFixed(),
+      notionalAfterRounding: calculateNotional(baseAmount, priceRaw.toFixed()),
       decodedAppendix: decodeNadoAppendix(appendix),
     },
   };

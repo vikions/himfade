@@ -70,7 +70,7 @@ export class NadoSignalSource implements NadoSignalDataSource {
         const symbol = symbols.get(balance.productId);
         if (!symbol) return null;
         const baseAmount = fromX18(balance.amount.abs().toFixed());
-        const oraclePrice = fromX18(balance.oraclePrice.toFixed());
+        const oraclePrice = new Decimal(balance.oraclePrice.toFixed()).toNumber();
         return {
           symbol,
           productId: balance.productId,

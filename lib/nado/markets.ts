@@ -28,8 +28,8 @@ export async function getNadoMarket(
   const quote = await client.market.getLatestMarketPrice({
     productId: market.productId,
   });
-  const mid = new Decimal(fromNadoX18(quote.bid))
-    .plus(fromNadoX18(quote.ask))
+  const mid = new Decimal(quote.bid.toFixed())
+    .plus(quote.ask.toFixed())
     .div(2)
     .toString();
   const sizeIncrement = new Decimal(fromNadoX18(market.sizeIncrement));
@@ -46,7 +46,7 @@ export async function getNadoMarket(
     productId: market.productId,
     price: mid,
     priceTimestamp: new Date().toISOString(),
-    priceIncrement: fromNadoX18(market.priceIncrement),
+    priceIncrement: market.priceIncrement.toFixed(),
     sizeIncrement: sizeIncrement.toString(),
     minimumBaseAmount,
     minimumNotionalUsd: minimumNotionalUsd.toFixed(2),
