@@ -90,8 +90,10 @@ describe('Nado market metadata', () => {
     const payload = prepared.payload as NadoPreparedPayload;
 
     expect(prepared.estimatedBaseAmount).toBe('0.00018');
-    expect(payload.order.price.toFixed()).toBe('80180.1');
-    expect(payload.order.amount.toFixed()).toBe('-180000000000000');
+    expect(new BigNumber(payload.order.price).toFixed()).toBe('80180.1');
+    expect(new BigNumber(payload.order.amount).toFixed()).toBe(
+      '-180000000000000',
+    );
   });
 
   it('puts the configured Builder ID on both opening and reduce-only closing orders', async () => {

@@ -662,6 +662,31 @@ header .wallet-adapter-button.wallet-adapter-button-trigger {
   gap: 0.75rem;
   margin-top: 0.9rem;
 }
+.funding-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.9rem;
+}
+.funding-tabs button {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.35rem 0.55rem;
+  color: #817f78;
+  font-size: 0.62rem;
+}
+.funding-tabs button[aria-pressed='true'] {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.035);
+  color: #d0cdc4;
+}
+.funding-tabs button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
 .deposit-row label > span {
   display: block;
   margin-bottom: 0.35rem;
@@ -691,6 +716,15 @@ header .wallet-adapter-button.wallet-adapter-button-trigger {
     0.78rem var(--font-geist-mono),
     monospace;
 }
+.amount-max {
+  border: 0;
+  background: transparent;
+  padding: 0.4rem 0 0.4rem 0.6rem;
+  color: #9eb7a2;
+  font:
+    600 0.57rem var(--font-geist-mono),
+    monospace;
+}
 .deposit-row > button {
   display: inline-flex;
   min-height: 2.35rem;
@@ -707,6 +741,195 @@ header .wallet-adapter-button.wallet-adapter-button-trigger {
   margin-top: 0.55rem;
   color: #74716a;
   font-size: 0.59rem;
+}
+.positions-panel {
+  margin-top: 1rem;
+  border-block: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 1rem 0;
+}
+.positions-heading,
+.positions-heading > div,
+.positions-heading > button,
+.position-summary,
+.position-summary > div:first-child,
+.position-footer,
+.attribution-proof,
+.close-position-action,
+.positions-state,
+.execution-notice {
+  display: flex;
+  align-items: center;
+}
+.positions-heading {
+  justify-content: space-between;
+  gap: 1rem;
+}
+.positions-heading > div {
+  min-width: 0;
+  gap: 0.55rem;
+}
+.positions-heading strong {
+  font-size: 0.72rem;
+  font-weight: 640;
+}
+.positions-heading span {
+  color: #74716b;
+  font-size: 0.59rem;
+}
+.positions-heading > button {
+  gap: 0.35rem;
+  border: 0;
+  background: transparent;
+  padding: 0.35rem 0;
+  color: #8e8b83;
+  font-size: 0.6rem;
+}
+.positions-heading > button:disabled {
+  opacity: 0.55;
+}
+.positions-state {
+  min-height: 4.5rem;
+  gap: 0.55rem;
+  color: #8d8a82;
+  font-size: 0.66rem;
+  line-height: 1.5;
+}
+.positions-state-error {
+  color: #d2a09a;
+}
+.position-list {
+  margin-top: 0.85rem;
+}
+.position-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 1rem 0 0.15rem;
+}
+.position-summary {
+  justify-content: space-between;
+  gap: 1rem;
+}
+.position-summary > div:first-child {
+  min-width: 0;
+  gap: 0.55rem;
+}
+.position-side {
+  border: 1px solid currentColor;
+  padding: 0.18rem 0.32rem;
+  font:
+    600 0.52rem var(--font-geist-mono),
+    monospace;
+}
+.position-side.long {
+  color: #9fcdb0;
+}
+.position-side.short {
+  color: #dea6a0;
+}
+.position-row h3 {
+  overflow: hidden;
+  margin: 0;
+  color: #d9d6cd;
+  font-size: 0.88rem;
+  font-weight: 580;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.position-pnl {
+  flex: 0 0 auto;
+  text-align: right;
+}
+.position-pnl span {
+  display: block;
+  color: #74716b;
+  font-size: 0.56rem;
+}
+.position-pnl strong {
+  display: block;
+  margin-top: 0.18rem;
+  font:
+    600 0.88rem var(--font-geist-mono),
+    monospace;
+}
+.position-pnl strong[data-tone='positive'] {
+  color: #9fcdb0;
+}
+.position-pnl strong[data-tone='negative'] {
+  color: #e2a29c;
+}
+.position-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0.9rem 0 0;
+}
+.position-metrics > div {
+  min-width: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.065);
+  padding: 0 0.65rem;
+}
+.position-metrics > div:first-child {
+  padding-left: 0;
+}
+.position-metrics > div:last-child {
+  border-right: 0;
+  padding-right: 0;
+}
+.position-metrics dt {
+  color: #706d66;
+  font-size: 0.55rem;
+}
+.position-metrics dd {
+  overflow: hidden;
+  margin: 0.28rem 0 0;
+  color: #bdbab1;
+  font:
+    500 0.65rem var(--font-geist-mono),
+    monospace;
+  text-overflow: ellipsis;
+}
+.position-footer {
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-top: 0.9rem;
+}
+.attribution-proof {
+  min-width: 0;
+  gap: 0.35rem;
+  font-size: 0.59rem;
+}
+.attribution-proof.verified {
+  color: #9dbda2;
+}
+.attribution-proof.warning {
+  color: #d0a098;
+}
+.attribution-proof.pending {
+  color: #77746d;
+}
+.close-position-action {
+  flex: 0 0 auto;
+  min-height: 2rem;
+  gap: 0.35rem;
+  border: 1px solid rgba(216, 149, 142, 0.24);
+  background: rgba(216, 149, 142, 0.045);
+  padding: 0.4rem 0.65rem;
+  color: #d3a49e;
+  font-size: 0.61rem;
+}
+.close-position-action:disabled {
+  opacity: 0.55;
+}
+.execution-notice {
+  gap: 0.55rem;
+  margin-top: 1rem;
+  border: 1px solid rgba(165, 194, 170, 0.22);
+  background: rgba(165, 194, 170, 0.035);
+  padding: 0.75rem;
+  color: #acc4b0;
+  font-size: 0.66rem;
+  line-height: 1.5;
+}
+.execution-notice p {
+  margin: 0;
 }
 .execution-error strong {
   display: block;
@@ -791,6 +1014,7 @@ header .wallet-adapter-button.wallet-adapter-button-trigger {
 }
 .primary-action,
 .secondary-action,
+.danger-action,
 .icon-action {
   min-height: 2.5rem;
   border: 1px solid var(--line);
@@ -803,9 +1027,15 @@ header .wallet-adapter-button.wallet-adapter-button-trigger {
   color: #171714;
 }
 .secondary-action,
+.danger-action,
 .icon-action {
   background: transparent;
   color: #b5b2aa;
+}
+.danger-action {
+  border-color: rgba(216, 149, 142, 0.35);
+  background: rgba(216, 149, 142, 0.1);
+  color: #e0aaa4;
 }
 .icon-action {
   display: grid;
@@ -960,6 +1190,35 @@ header .wallet-adapter-button.wallet-adapter-button-trigger {
     grid-template-columns: 1fr;
   }
   .deposit-row > button {
+    justify-content: center;
+  }
+  .positions-heading > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .position-summary {
+    align-items: flex-start;
+  }
+  .position-metrics {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem 0;
+  }
+  .position-metrics > div {
+    padding-left: 0;
+  }
+  .position-metrics > div:nth-child(2) {
+    border-right: 0;
+  }
+  .position-metrics > div:nth-child(n + 3) {
+    border-top: 1px solid rgba(255, 255, 255, 0.065);
+    padding-top: 0.75rem;
+  }
+  .position-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .close-position-action {
     justify-content: center;
   }
   .review-dialog {

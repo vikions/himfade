@@ -15,7 +15,21 @@ export type NadoAccountOverview = {
   availableCollateralUsd?: string;
   maximumBaseAmount?: string;
   maximumNotionalUsd?: string;
+  maximumWithdrawableUsd?: string;
 };
+
+export function toNadoWithdrawalUnits(amountUsd: string): string {
+  const amount = new Decimal(amountUsd);
+  if (!amount.isFinite() || !amount.isPositive()) {
+    throw new Error('Withdrawal amount must be greater than zero.');
+  }
+  if (amount.decimalPlaces() > QUOTE_DECIMALS) {
+    throw new Error(
+      `Withdrawal amount supports up to ${QUOTE_DECIMALS} decimal places.`,
+    );
+  }
+  return amount.mul(new Decimal(10).pow(18)).toFixed(0);
+}
 
 export function toQuoteTokenUnits(amountUsd: string): string {
   const amount = new Decimal(amountUsd);
@@ -83,6 +97,37 @@ export async function depositNadoCollateral(input: {
   return { approvalTxHash, depositTxHash };
 }
 
+export async function withdrawNadoCollateral(input: {
+  client: NadoClient;
+  wallet: Address;
+  subaccountName?: string;
+  amountUsd: string;
+  onStatus?: (status: 'checking' | 'signing' | 'submitted') => void;
+}): Promise<unknown> {
+  const subaccountName = input.subaccountName ?? 'default';
+  const amount = toNadoWithdrawalUnits(input.amountUsd);
+  input.onStatus?.('checking');
+  const maximum = await input.client.spot.getMaxWithdrawable({
+    subaccountOwner: input.wallet,
+    subaccountName,
+    productId: QUOTE_PRODUCT_ID,
+  });
+  if (new BigNumber(amount).gt(maximum)) {
+    throw new Error(
+      `The maximum withdrawable amount is $${fromNadoX18(maximum)}.`,
+    );
+  }
+
+  input.onStatus?.('signing');
+  const result = await input.client.spot.withdraw({
+    subaccountName,
+    productId: QUOTE_PRODUCT_ID,
+    amount,
+  });
+  input.onStatus?.('submitted');
+  return result;
+}
+
 export async function getNadoAccountOverview(input: {
   client: NadoClient;
   wallet: Address;
@@ -114,6 +159,17 @@ export async function getNadoAccountOverview(input: {
     accountEquityUsd: fromNadoX18(summary.health.unweighted.health),
     availableCollateralUsd: fromNadoX18(summary.health.initial.health),
   };
+
+  try {
+    const maximumWithdrawable = await input.client.spot.getMaxWithdrawable({
+      subaccountOwner: input.wallet,
+      subaccountName,
+      productId: QUOTE_PRODUCT_ID,
+    });
+    fundedOverview.maximumWithdrawableUsd = fromNadoX18(maximumWithdrawable);
+  } catch {
+    // Balance and position data remain useful when the withdrawal quote is unavailable.
+  }
 
   try {
     const maximumBaseAmount = await input.client.market.getMaxOrderSize({

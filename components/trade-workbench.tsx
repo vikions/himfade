@@ -12,7 +12,7 @@ import type { PublicEnv } from '@/config/env';
 import { getVenueConfigStatus } from '@/config/env';
 import { reverseSide } from '@/lib/trading/reverse-side';
 import { notionalToBaseAmount, validateNotional } from '@/lib/trading/notional';
-import type { PreparedOrder, Venue } from '@/lib/trading/types';
+import type { PreparedOrder, SubmittedOrder, Venue } from '@/lib/trading/types';
 import type { VenueAdapter } from '@/lib/trading/venue-adapter';
 import type { TradeReceipt as TradeReceiptType } from '@/lib/receipts/types';
 import { saveReceipt } from '@/lib/receipts/storage';
@@ -25,7 +25,12 @@ import {
   depositNadoCollateral,
   getNadoAccountOverview,
   type NadoAccountOverview,
+  withdrawNadoCollateral,
 } from '@/lib/nado/funding';
+import {
+  type NadoManagedPosition,
+  type NadoPortfolio,
+} from '@/lib/nado/positions';
 import { NadoAdapter } from '@/lib/nado/adapter';
 import { PacificaAdapter } from '@/lib/pacifica/adapter';
 import { PacificaApi } from '@/lib/pacifica/api';
@@ -37,6 +42,9 @@ import { OrderReviewDialog } from './order-review-dialog';
 import { TradeReceipt } from './trade-receipt';
 import { VenueSelector } from './venue-selector';
 import { NadoAccountPanel } from './nado-account-panel';
+import { NadoPositionsPanel } from './nado-positions-panel';
+import { ClosePositionDialog } from './close-position-dialog';
+import { WithdrawalReviewDialog } from './withdrawal-review-dialog';
 
 type MarketPreview = {
   venue: Venue;
@@ -64,14 +72,24 @@ export function TradeWorkbench({
   const [receipt, setReceipt] = useState<TradeReceiptType | null>(null);
   const [status, setStatus] = useState<string>('Ready');
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [closing, setClosing] = useState(false);
   const [approving, setApproving] = useState(false);
   const [funding, setFunding] = useState(false);
   const [fundingStatus, setFundingStatus] = useState<string>();
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawalStatus, setWithdrawalStatus] = useState<string>();
+  const [withdrawalAmount, setWithdrawalAmount] = useState<string | null>(null);
   const [account, setAccount] = useState<NadoAccountOverview | null>(null);
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountRefresh, setAccountRefresh] = useState(0);
+  const [portfolio, setPortfolio] = useState<NadoPortfolio | null>(null);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [portfolioError, setPortfolioError] = useState<string>();
+  const [positionToClose, setPositionToClose] =
+    useState<NadoManagedPosition | null>(null);
+  const [closingSymbol, setClosingSymbol] = useState<string>();
   const [marketPreview, setMarketPreview] = useState<MarketPreview | null>(
     null,
   );
@@ -132,6 +150,59 @@ export function TradeWorkbench({
     env.NEXT_PUBLIC_NADO_NETWORK,
     env.NEXT_PUBLIC_PACIFICA_NETWORK,
     signal.symbol,
+    venue,
+  ]);
+
+  useEffect(() => {
+    let active = true;
+
+    const refreshPortfolio = async () => {
+      if (venue !== 'nado' || !address || chainId !== requiredChain.id) {
+        if (active) {
+          setPortfolio(null);
+          setPortfolioError(undefined);
+        }
+        return;
+      }
+      if (active) setPortfolioLoading(true);
+      try {
+        const response = await fetch(
+          `/api/nado/portfolio?wallet=${encodeURIComponent(address)}`,
+          { cache: 'no-store' },
+        );
+        if (!response.ok) {
+          throw new Error('Portfolio request failed.');
+        }
+        const next = (await response.json()) as NadoPortfolio;
+        if (active) {
+          setPortfolio(next);
+          setPortfolioError(undefined);
+        }
+      } catch {
+        if (active) {
+          setPortfolioError(
+            'Positions could not be refreshed. Your Nado account is unchanged; try again.',
+          );
+        }
+      } finally {
+        if (active) setPortfolioLoading(false);
+      }
+    };
+
+    void refreshPortfolio();
+    const timer = setInterval(() => void refreshPortfolio(), 15_000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [
+    accountRefresh,
+    address,
+    chainId,
+    env.NEXT_PUBLIC_NADO_BUILDER_ID,
+    env.NEXT_PUBLIC_NADO_NETWORK,
+    env.NEXT_PUBLIC_NADO_SUBACCOUNT_NAME,
+    requiredChain.id,
     venue,
   ]);
 
@@ -220,6 +291,7 @@ export function TradeWorkbench({
 
   async function handleReview() {
     setError(null);
+    setNotice(null);
     if (!signalReady) {
       setError(
         'A verified live target is not available yet. Try again after the signal refreshes.',
@@ -279,6 +351,7 @@ export function TradeWorkbench({
 
   async function handleNadoDeposit(amountUsd: string) {
     setError(null);
+    setNotice(null);
     if (!address || !walletClient?.account) {
       setError('Connect your Ink wallet before depositing.');
       return;
@@ -324,6 +397,7 @@ export function TradeWorkbench({
           ),
       });
       setStatus('Deposit complete');
+      setNotice('Collateral confirmed. Your Nado balance has been refreshed.');
       setAccountRefresh((value) => value + 1);
     } catch (cause) {
       const tradingError = toTradingError(cause);
@@ -335,18 +409,99 @@ export function TradeWorkbench({
     }
   }
 
+  function handleNadoWithdrawRequest(amountUsd: string) {
+    setError(null);
+    setNotice(null);
+    try {
+      const amount = new Decimal(amountUsd);
+      if (!amount.isFinite() || !amount.isPositive()) {
+        throw new Error('Enter a withdrawal amount greater than zero.');
+      }
+      if (!account?.maximumWithdrawableUsd) {
+        throw new Error('The withdrawable balance is still loading.');
+      }
+      if (amount.gt(account.maximumWithdrawableUsd)) {
+        throw new Error(
+          `You can currently withdraw up to $${account.maximumWithdrawableUsd}.`,
+        );
+      }
+      setWithdrawalAmount(amount.toString());
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Invalid withdrawal amount.',
+      );
+    }
+  }
+
+  async function handleNadoWithdraw() {
+    if (!withdrawalAmount || !address || !walletClient?.account || withdrawing)
+      return;
+    setWithdrawing(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const client = createWalletNadoClient({
+        network: env.NEXT_PUBLIC_NADO_NETWORK,
+        walletClient: walletClient as unknown as WalletClientWithAccount,
+      });
+      await withdrawNadoCollateral({
+        client,
+        wallet: address,
+        subaccountName: env.NEXT_PUBLIC_NADO_SUBACCOUNT_NAME,
+        amountUsd: withdrawalAmount,
+        onStatus: (next) => {
+          const label = {
+            checking: 'Checking limit',
+            signing: 'Awaiting signature',
+            submitted: 'Submitted',
+          }[next];
+          setWithdrawalStatus(label);
+          setStatus(label);
+        },
+      });
+      setWithdrawalAmount(null);
+      setStatus('Withdrawal accepted');
+      setNotice(
+        'Nado accepted the withdrawal. Wallet USDT0 updates after settlement.',
+      );
+      setAccountRefresh((value) => value + 1);
+    } catch (cause) {
+      const tradingError = toTradingError(cause);
+      setError(`${tradingError.message} ${tradingError.nextAction}`);
+      setStatus('Withdrawal failed');
+    } finally {
+      setWithdrawing(false);
+      setWithdrawalStatus(undefined);
+    }
+  }
+
   async function handleConfirm() {
     if (!prepared || submissionInFlightRef.current) return;
     submissionInFlightRef.current = true;
     setPending(true);
     setError(null);
+    setNotice(null);
+    let submitted: SubmittedOrder | undefined;
     try {
       const adapter = adapterRef.current;
       if (!adapter) throw new Error('Live venue adapter was not prepared.');
       setStatus('Awaiting signature');
-      const submitted = await adapter.submitMarketOrder(prepared);
+      submitted = await adapter.submitMarketOrder(prepared);
       setStatus(submitted.accepted ? 'Accepted' : 'Rejected');
-      const fill = await adapter.waitForFill(submitted);
+      setPrepared(null);
+      setNotice('Order accepted by Nado. Confirming the fill…');
+      setAccountRefresh((value) => value + 1);
+
+      let fill;
+      try {
+        fill = await adapter.waitForFill(submitted);
+      } catch {
+        setStatus('Order submitted');
+        setNotice(
+          'Nado accepted the order, but fill history is delayed. Live positions refresh automatically below.',
+        );
+        return;
+      }
       setStatus(fill.status === 'partial' ? 'Partially filled' : 'Filled');
       const liveReceipt: TradeReceiptType = {
         id: crypto.randomUUID(),
@@ -355,8 +510,8 @@ export function TradeWorkbench({
           venue === 'nado'
             ? env.NEXT_PUBLIC_NADO_NETWORK
             : env.NEXT_PUBLIC_PACIFICA_NETWORK,
-        symbol: signal.symbol,
-        side: fadeSide,
+        symbol: prepared.symbol,
+        side: prepared.side,
         intent: 'open',
         requestedNotionalUsd: notional,
         filledNotionalUsd: fill.notionalUsd,
@@ -383,11 +538,12 @@ export function TradeWorkbench({
       };
       saveReceipt(liveReceipt);
       setReceipt(liveReceipt);
-      setPrepared(null);
+      setNotice('Fill confirmed. Your live position and PnL are shown below.');
+      setAccountRefresh((value) => value + 1);
     } catch (cause) {
       const tradingError = toTradingError(cause);
       setError(`${tradingError.message} ${tradingError.nextAction}`);
-      setStatus('Rejected');
+      setStatus(submitted ? 'Confirmation delayed' : 'Rejected');
     } finally {
       submissionInFlightRef.current = false;
       setPending(false);
@@ -422,23 +578,42 @@ export function TradeWorkbench({
   }
 
   async function handleClosePosition() {
-    const adapter = adapterRef.current;
-    if (!adapter || !receipt || closeInFlightRef.current) return;
+    if (!positionToClose || closeInFlightRef.current) return;
+    const position = positionToClose;
     closeInFlightRef.current = true;
     setClosing(true);
+    setClosingSymbol(position.symbol);
+    setPositionToClose(null);
     setError(null);
+    setNotice(null);
+    let submitted: SubmittedOrder | undefined;
     try {
       setStatus('Preparing close');
-      const submitted = await adapter.closePosition({
-        symbol: receipt.symbol,
+      const adapter = await createAdapter();
+      submitted = await adapter.closePosition({
+        symbol: position.symbol,
         slippageBps: env.NEXT_PUBLIC_MAX_SLIPPAGE_BPS,
       });
-      const fill = await adapter.waitForFill(submitted);
+      setStatus('Close accepted');
+      setNotice('Reduce-only close accepted. Confirming the fill…');
+      setAccountRefresh((value) => value + 1);
+      let fill;
+      try {
+        fill = await adapter.waitForFill(submitted);
+      } catch {
+        setStatus('Close submitted');
+        setNotice(
+          'Nado accepted the close. Position state will update automatically when the fill is indexed.',
+        );
+        return;
+      }
       const closeReceipt: TradeReceiptType = {
-        ...receipt,
         id: crypto.randomUUID(),
+        venue: 'nado',
+        network: env.NEXT_PUBLIC_NADO_NETWORK,
+        symbol: position.symbol,
         intent: 'close',
-        side: reverseSide(receipt.side),
+        side: reverseSide(position.side),
         requestedNotionalUsd: fill.notionalUsd,
         filledNotionalUsd: fill.notionalUsd,
         filledBaseAmount: fill.baseAmount,
@@ -448,6 +623,8 @@ export function TradeWorkbench({
         orderId: fill.orderId,
         clientOrderId: submitted.clientOrderId,
         digest: submitted.digest,
+        builderId: env.NEXT_PUBLIC_NADO_BUILDER_ID,
+        builderFeeRate: env.NEXT_PUBLIC_NADO_BUILDER_FEE_RATE_UNITS,
         attributionStatus: fill.builderEvidence ? 'verified' : 'fill-confirmed',
         officialEvidence: fill.builderEvidence,
         sanitizedRawResponse: { submitted: submitted.raw, fill: fill.raw },
@@ -455,12 +632,15 @@ export function TradeWorkbench({
       saveReceipt(closeReceipt);
       setReceipt(closeReceipt);
       setStatus('Position closed');
+      setNotice('Close fill confirmed. Your account has been refreshed.');
+      setAccountRefresh((value) => value + 1);
     } catch (cause) {
       const e = toTradingError(cause);
       setError(`${e.message} ${e.nextAction}`);
     } finally {
       closeInFlightRef.current = false;
       setClosing(false);
+      setClosingSymbol(undefined);
     }
   }
 
@@ -493,7 +673,10 @@ export function TradeWorkbench({
           loading={accountLoading}
           funding={funding}
           fundingStatus={fundingStatus}
+          withdrawing={withdrawing}
+          withdrawalStatus={withdrawalStatus}
           onDeposit={handleNadoDeposit}
+          onWithdraw={handleNadoWithdrawRequest}
         />
       )}
       {venue === 'pacifica' &&
@@ -512,6 +695,16 @@ export function TradeWorkbench({
             </button>
           </div>
         )}
+      {venue === 'nado' && isConnected && chainId === requiredChain.id && (
+        <NadoPositionsPanel
+          portfolio={portfolio}
+          loading={portfolioLoading}
+          error={portfolioError}
+          closingSymbol={closingSymbol}
+          onRefresh={() => setAccountRefresh((value) => value + 1)}
+          onRequestClose={setPositionToClose}
+        />
+      )}
       <FadeTicket
         signalReady={signalReady}
         targetSide={signal.positionSide}
@@ -540,6 +733,12 @@ export function TradeWorkbench({
           <p>{error}</p>
         </div>
       )}
+      {notice && (
+        <div className="execution-notice" role="status">
+          <CheckCircle size={16} />
+          <p>{notice}</p>
+        </div>
+      )}
       <button
         className="fade-button"
         disabled={!signalReady || pending || validationErrors.length > 0}
@@ -562,7 +761,12 @@ export function TradeWorkbench({
           receipt={receipt}
           onClosePosition={
             env.NEXT_PUBLIC_ENABLE_LIVE_TRADING && receipt.intent === 'open'
-              ? handleClosePosition
+              ? () => {
+                  const matchingPosition = portfolio?.positions.find(
+                    (position) => position.symbol === receipt.symbol,
+                  );
+                  if (matchingPosition) setPositionToClose(matchingPosition);
+                }
               : undefined
           }
           closing={closing}
@@ -571,11 +775,27 @@ export function TradeWorkbench({
       {prepared && (
         <OrderReviewDialog
           order={prepared}
-          targetSide={signal.positionSide}
+          targetSide={reverseSide(prepared.side)}
           slippageBps={env.NEXT_PUBLIC_MAX_SLIPPAGE_BPS}
           onCancel={() => setPrepared(null)}
           onConfirm={handleConfirm}
           pending={pending}
+        />
+      )}
+      {positionToClose && (
+        <ClosePositionDialog
+          position={positionToClose}
+          pending={closing}
+          onCancel={() => setPositionToClose(null)}
+          onConfirm={() => void handleClosePosition()}
+        />
+      )}
+      {withdrawalAmount && (
+        <WithdrawalReviewDialog
+          amount={withdrawalAmount}
+          pending={withdrawing}
+          onCancel={() => setWithdrawalAmount(null)}
+          onConfirm={() => void handleNadoWithdraw()}
         />
       )}
     </section>

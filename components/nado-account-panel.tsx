@@ -1,9 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { SpinnerGap, Wallet } from '@phosphor-icons/react';
+import { ArrowDown, ArrowUp, SpinnerGap, Wallet } from '@phosphor-icons/react';
 import { useSwitchChain } from 'wagmi';
+import Decimal from 'decimal.js';
 import type { NadoAccountOverview } from '@/lib/nado/funding';
+
+function usd(value?: string, decimals = 2) {
+  return value === undefined ? '—' : `$${new Decimal(value).toFixed(decimals)}`;
+}
 
 export function NadoAccountPanel({
   connected,
@@ -14,7 +19,10 @@ export function NadoAccountPanel({
   loading,
   funding,
   fundingStatus,
+  withdrawing,
+  withdrawalStatus,
   onDeposit,
+  onWithdraw,
 }: {
   connected: boolean;
   correctChain: boolean;
@@ -24,9 +32,15 @@ export function NadoAccountPanel({
   loading: boolean;
   funding: boolean;
   fundingStatus?: string;
+  withdrawing: boolean;
+  withdrawalStatus?: string;
   onDeposit: (amount: string) => Promise<void>;
+  onWithdraw: (amount: string) => void;
 }) {
-  const [amount, setAmount] = useState('10');
+  const [amount, setAmount] = useState('5');
+  const [transferMode, setTransferMode] = useState<'deposit' | 'withdraw'>(
+    'deposit',
+  );
   const { switchChain } = useSwitchChain();
 
   return (
@@ -68,28 +82,51 @@ export function NadoAccountPanel({
               <dt>Account equity</dt>
               <dd>
                 {account?.accountEquityUsd
-                  ? `$${account.accountEquityUsd}`
-                  : '$0'}
+                  ? usd(account.accountEquityUsd)
+                  : '$0.00'}
               </dd>
             </div>
             <div>
               <dt>Wallet USDT0</dt>
-              <dd>{account ? `$${account.walletBalanceUsd}` : '—'}</dd>
+              <dd>{account ? usd(account.walletBalanceUsd) : '—'}</dd>
             </div>
             <div>
               <dt>Position available</dt>
               <dd>
                 {account?.maximumNotionalUsd
-                  ? `$${account.maximumNotionalUsd}`
+                  ? usd(account.maximumNotionalUsd)
                   : account?.exists
                     ? '—'
-                    : '$0'}
+                    : '$0.00'}
               </dd>
             </div>
           </dl>
+          <div className="funding-tabs" aria-label="Collateral action">
+            <button
+              type="button"
+              aria-pressed={transferMode === 'deposit'}
+              onClick={() => setTransferMode('deposit')}
+            >
+              <ArrowDown size={13} /> Deposit
+            </button>
+            <button
+              type="button"
+              aria-pressed={transferMode === 'withdraw'}
+              disabled={!account?.exists}
+              onClick={() => setTransferMode('withdraw')}
+            >
+              <ArrowUp size={13} /> Withdraw
+            </button>
+          </div>
           <div className="deposit-row">
             <label>
-              <span>{account?.exists ? 'Add funds' : 'Fund your account'}</span>
+              <span>
+                {transferMode === 'deposit'
+                  ? account?.exists
+                    ? 'Add collateral'
+                    : 'Fund your account'
+                  : `Withdrawable · ${usd(account?.maximumWithdrawableUsd)}`}
+              </span>
               <div>
                 <b>$</b>
                 <input
@@ -98,18 +135,36 @@ export function NadoAccountPanel({
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
                 />
+                {transferMode === 'withdraw' &&
+                  account?.maximumWithdrawableUsd && (
+                    <button
+                      type="button"
+                      className="amount-max"
+                      onClick={() =>
+                        setAmount(account.maximumWithdrawableUsd ?? '0')
+                      }
+                    >
+                      MAX
+                    </button>
+                  )}
               </div>
             </label>
             <button
               type="button"
-              disabled={funding || loading}
-              onClick={() => void onDeposit(amount)}
+              disabled={funding || withdrawing || loading}
+              onClick={() =>
+                transferMode === 'deposit'
+                  ? void onDeposit(amount)
+                  : onWithdraw(amount)
+              }
             >
-              {funding ? (
+              {funding || withdrawing ? (
                 <>
                   <SpinnerGap size={14} className="animate-spin" />{' '}
-                  {fundingStatus ?? 'Working'}
+                  {fundingStatus ?? withdrawalStatus ?? 'Working'}
                 </>
+              ) : transferMode === 'withdraw' ? (
+                'Review withdrawal'
               ) : account?.exists ? (
                 'Deposit'
               ) : (
