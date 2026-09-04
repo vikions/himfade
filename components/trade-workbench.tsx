@@ -80,7 +80,7 @@ export function TradeWorkbench({
   const adapterRef = useRef<VenueAdapter | null>(null);
   const submissionInFlightRef = useRef(false);
   const closeInFlightRef = useRef(false);
-  const { address, chainId } = useAccount();
+  const { address, chainId, isConnected } = useAccount();
   const requiredChain =
     env.NEXT_PUBLIC_NADO_NETWORK === 'inkMainnet' ? ink : inkSepolia;
   const { data: walletClient } = useWalletClient({ chainId: requiredChain.id });
@@ -476,7 +476,7 @@ export function TradeWorkbench({
       />
       {venue === 'nado' && (
         <NadoAccountPanel
-          connected={Boolean(address)}
+          connected={isConnected}
           correctChain={chainId === requiredChain.id}
           requiredChainId={requiredChain.id}
           requiredChainName={requiredChain.name}
