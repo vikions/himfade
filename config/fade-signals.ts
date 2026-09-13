@@ -13,6 +13,13 @@ export type FadeSignal = {
   performanceWindowDays?: number;
   performanceWindowComplete?: boolean;
   performanceWindowStart?: string;
+  performanceBasis?: 'net' | 'realized';
+  volume30dUsd?: number;
+  fees30dUsd?: number;
+  roiPercent?: number;
+  maxDrawdownUsd?: number;
+  activeDays?: number;
+  analyticsProvider?: string;
   closedOrderCount?: number;
   candidateCount?: number;
   selectionMethod?: string;

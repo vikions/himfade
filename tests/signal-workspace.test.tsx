@@ -64,6 +64,26 @@ describe('signal workspace', () => {
       screen.getByLabelText('selected workbench signal'),
     ).toHaveTextContent('two');
   });
+
+  it('labels Explorer performance as net and exposes activity-backed volume', () => {
+    render(
+      <SignalWorkspace
+        feed={feed([
+          signal('one', {
+            performanceBasis: 'net',
+            analyticsProvider: 'Nado Explorer',
+            volume30dUsd: 75_000,
+            activeDays: 22,
+          }),
+        ])}
+        env={{} as PublicEnv}
+      />,
+    );
+
+    expect(screen.getAllByText('30D NET PNL')).toHaveLength(2);
+    expect(screen.getByText('$75,000')).toBeInTheDocument();
+    expect(screen.getByText('22 active days')).toBeInTheDocument();
+  });
 });
 
 function feed(signals: FadeSignal[]): FadeSignalFeed {
@@ -74,7 +94,7 @@ function feed(signals: FadeSignal[]): FadeSignalFeed {
   };
 }
 
-function signal(id: string): FadeSignal {
+function signal(id: string, overrides: Partial<FadeSignal> = {}): FadeSignal {
   return {
     id,
     alias: 'NADO ACCOUNT',
@@ -93,5 +113,6 @@ function signal(id: string): FadeSignal {
     updatedAt: '2026-09-04T12:00:00.000Z',
     dataSourceLabel: 'Nado public archive + gateway',
     isLiveData: true,
+    ...overrides,
   };
 }

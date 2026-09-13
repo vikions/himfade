@@ -122,6 +122,8 @@ export async function loadFeaturedNadoSignal(
           performanceWindowDays: performance.observedDays,
           performanceWindowComplete: performance.windowComplete,
           performanceWindowStart: performance.observedFrom,
+          performanceBasis: 'realized' as const,
+          analyticsProvider: 'Nado official archive',
           winRatePercent: performance.winRatePercent,
           liquidationCount: performance.liquidationCount,
           closedOrderCount: performance.closedOrderCount,

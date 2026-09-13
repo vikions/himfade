@@ -59,7 +59,7 @@ export function SignalDesk({
           <p>
             {feed.signals.length} verified open{' '}
             {feed.signals.length === 1 ? 'position' : 'positions'}, ranked by
-            observed losses.
+            verified loss signals.
           </p>
         </div>
         <div className="desk-live-state" title="Public Nado data">
@@ -115,7 +115,9 @@ function SignalRow({
   onSelect: (id: string) => void;
 }) {
   const window = signal.performanceWindowComplete
-    ? '30D PNL'
+    ? signal.performanceBasis === 'net'
+      ? '30D NET PNL'
+      : '30D PNL'
     : `${signal.performanceWindowDays ?? 0}D PNL`;
   const market = signal.symbol.replace(/-PERP$/i, '');
   const tilt = [-1.4, 0.8, -0.5, 1.2, -0.9][index] ?? 0;
@@ -185,8 +187,11 @@ function SelectedSignal({
 }) {
   const fade = reverseSide(signal.positionSide);
   const windowLabel = signal.performanceWindowComplete
-    ? '30D REALIZED PNL'
+    ? signal.performanceBasis === 'net'
+      ? '30D NET PNL'
+      : '30D REALIZED PNL'
     : `${signal.performanceWindowDays ?? 0}D OBSERVED PNL`;
+  const hasExplorerAnalytics = signal.analyticsProvider === 'Nado Explorer';
 
   return (
     <section
@@ -221,9 +226,17 @@ function SelectedSignal({
           <small>{signal.closedOrderCount ?? 0} closed orders</small>
         </div>
         <div>
-          <span>LIQUIDATIONS</span>
-          <strong>{signal.liquidationCount ?? 0}</strong>
-          <small>same observation window</small>
+          <span>{hasExplorerAnalytics ? '30D VOLUME' : 'LIQUIDATIONS'}</span>
+          <strong>
+            {hasExplorerAnalytics
+              ? money(signal.volume30dUsd ?? 0)
+              : (signal.liquidationCount ?? 0)}
+          </strong>
+          <small>
+            {hasExplorerAnalytics
+              ? `${signal.activeDays ?? 0} active days`
+              : 'same observation window'}
+          </small>
         </div>
       </div>
 
@@ -251,8 +264,9 @@ function SelectedSignal({
 
       <div className="signal-proof selected-proof">
         <p>
-          Ranked from {signal.candidateCount ?? 0} losing candidates in the
-          latest public maker sample; this position was verified before display.
+          Ranked from {signal.candidateCount ?? 0} losing candidates using{' '}
+          {signal.selectionMethod ?? 'observed public performance'}; the open
+          position was verified through Nado before display.
         </p>
         <div>
           <a
